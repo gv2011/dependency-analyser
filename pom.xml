@@ -15,9 +15,8 @@
 
   <modules>
     <module>shared</module>
-    <module>plugin</module>
-    <module>invoker</module>
-    <module>cli</module>
+    <module>api</module>
+    <module>implementation</module>
   </modules>
 
   <properties>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.github.gv2011</groupId>
+    <artifactId>dependency-analyser</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>dependency-analyser-api</artifactId>
+  <packaging>jar</packaging>
+
+  <name>Dependency Analyser API</name>
+  <description>
+    Interfaces and enums only, no classes. Callers depend on this module alone;
+    the concrete implementation is located at runtime via ServiceLoader (see
+    DependencyAnalyser.instance()), so depending on this module does not pull
+    in any Maven-embedding machinery.
+  </description>
+
+</project>
