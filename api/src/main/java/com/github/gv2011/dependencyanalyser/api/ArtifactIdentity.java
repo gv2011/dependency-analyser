@@ -2,6 +2,8 @@ package com.github.gv2011.dependencyanalyser.api;
 
 import java.util.Optional;
 
+import com.github.gv2011.util.beans.Bean;
+
 /**
  * The identity of a Maven artifact across all its released versions — e.g.
  * "The New York Times, International Edition" as opposed to one specific
@@ -15,7 +17,7 @@ import java.util.Optional;
  * a platform-specific native jar) are genuinely different artifacts, not
  * two versions of the same one.
  */
-public interface ArtifactIdentity {
+public interface ArtifactIdentity extends Bean{
 
   String groupId();
 

@@ -34,4 +34,6 @@ public interface DependencyAnalyser {
    */
   ISet<ResolvedDependency> resolvedDependencies(Path projectDirectory, Classpath classpath);
 
+  Version parseVersion(String version);
+
 }

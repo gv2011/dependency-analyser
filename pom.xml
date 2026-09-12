@@ -35,6 +35,7 @@
     <!-- com.github.gv2011:util-apis, used by dependency-analyser-api for
          IList/ISet: https://github.com/gv2011/util-apis -->
     <util-apis.version>0.17.1</util-apis.version>
+    <util.version>0.25.2</util.version>
 
     <!-- Confirmed via maven-slf4j-provider:3.9.9's own published dependency
          list (the exact Maven version pinned above): this is the slf4j-api
@@ -85,6 +86,39 @@
         <artifactId>util-apis</artifactId>
         <version>${util-apis.version}</version>
       </dependency>
+      
+      <dependency>
+        <groupId>ch.qos.logback</groupId>
+        <artifactId>logback-classic</artifactId>
+        <version>1.6.3</version>
+        <scope>runtime</scope>
+      </dependency>
+      
+      <dependency>
+        <groupId>com.github.gv2011</groupId>
+        <artifactId>util-gcol</artifactId>
+        <version>${util.version}</version>
+        <scope>runtime</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.github.gv2011</groupId>
+        <artifactId>util-beans</artifactId>
+        <version>${util.version}</version>
+        <scope>runtime</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.github.gv2011</groupId>
+        <artifactId>util-json</artifactId>
+        <version>${util.version}</version>
+        <scope>runtime</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.github.gv2011</groupId>
+        <artifactId>gsoncore</artifactId>
+        <version>0.15.1</version>
+        <scope>runtime</scope>
+      </dependency>
+      
       <dependency>
         <groupId>org.junit.jupiter</groupId>
         <artifactId>junit-jupiter</artifactId>
