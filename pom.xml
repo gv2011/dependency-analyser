@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.github.gv2011</groupId>
+  <artifactId>dependency-analyser</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <description>
+    Experimental
+  </description>
+
+  <modules>
+    <module>shared</module>
+    <module>plugin</module>
+    <module>invoker</module>
+    <module>cli</module>
+  </modules>
+
+  <properties>
+    <maven.compiler.release>25</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <versions-common.version>2.21.0</versions-common.version>
+    <maven.version>3.9.9</maven.version>
+    <maven-plugin-annotations.version>3.15.0</maven-plugin-annotations.version>
+    <maven-plugin-plugin.version>3.15.2</maven-plugin-plugin.version>
+
+    <!-- Not independently verified to the same standard as the rest of this
+    project's pinned
+         versions; not confirmed via search the way maven-jar-plugin's Maven-4-only
+    newest
+         version was. 3.5.x+ is confirmed to require Maven 4 (MJAR-311); 3.4.1 predates
+    that
+         rewrite. If mvn install reports an incompatibility, this is the first thing to
+    check. -->
+    <maven-jar-plugin.version>3.4.1</maven-jar-plugin.version>
+
+    <!-- Confirmed via Gson's own changelog: 2.10 added genuine Java record
+    support, which is
+         what UpdateResult (major-updates-shared) relies on, not a manual field mapping. -->
+    <gson.version>2.10.1</gson.version>
+
+    <guava.version>33.7.1-jre</guava.version>
+    <jsr305.version>3.0.2</jsr305.version>
+    <javax-inject.version>1</javax-inject.version>
+    <junit-jupiter.version>6.1.3</junit-jupiter.version>
+    <hamcrest.version>3.0</hamcrest.version>
+
+    <!-- Confirmed via maven-slf4j-provider:3.9.9's own published dependency
+    list (the exact
+         Maven version pinned above): this is the slf4j-api version already in play
+    transitively
+         through maven-core/maven-embedder's own dependency graph, so pinning it here
+    explicitly
+         (for major-updates-invoker's own direct logging use) can't introduce a
+    convergence
+         conflict with what's already resolved. -->
+    <slf4j-api.version>2.0.19</slf4j-api.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.codehaus.mojo.versions</groupId>
+        <artifactId>versions-common</artifactId>
+        <version>${versions-common.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.maven</groupId>
+        <artifactId>maven-core</artifactId>
+        <version>${maven.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.maven</groupId>
+        <artifactId>maven-embedder</artifactId>
+        <version>${maven.version}</version>
+      </dependency>
+      <!-- maven-core's DefaultProjectBuildingHelper still depends on the legacy
+           org.apache.maven.repository.RepositorySystem interface; maven-compat is what
+      actually
+           implements it. A real Maven install bundles this in its own lib/ folder by
+      default
+           (confirmed: MNG-5995, "Maven itself cannot run without maven-compat");
+      depending on
+           maven-embedder purely as a library does not pull it in automatically. Without
+      this,
+           MavenCli.container(...) fails with a Guice ProvisionException, "No
+      implementation for
+           RepositorySystem was bound"; confirmed directly against a real stack trace. -->
+      <dependency>
+        <groupId>org.apache.maven</groupId>
+        <artifactId>maven-compat</artifactId>
+        <version>${maven.version}</version>
+      </dependency>
+      <!-- For major-updates-invoker's own direct use (logging a
+      plugin-version-mismatch warning)
+           ; not for routing Maven's own output, which turned out not to need this after
+      all;
+           see the removed maven-slf4j-provider entry this replaced. Version pinned to
+      what's
+           already in play transitively; see the slf4j-api.version property comment above. -->
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-api</artifactId>
+        <version>${slf4j-api.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.maven.plugin-tools</groupId>
+        <artifactId>maven-plugin-annotations</artifactId>
+        <version>${maven-plugin-annotations.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>javax.inject</groupId>
+        <artifactId>javax.inject</artifactId>
+        <version>${javax-inject.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.code.findbugs</groupId>
+        <artifactId>jsr305</artifactId>
+        <version>${jsr305.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava</artifactId>
+        <version>${guava.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.code.gson</groupId>
+        <artifactId>gson</artifactId>
+        <version>${gson.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.junit.jupiter</groupId>
+        <artifactId>junit-jupiter</artifactId>
+        <version>${junit-jupiter.version}</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.hamcrest</groupId>
+        <artifactId>hamcrest</artifactId>
+        <version>${hamcrest.version}</version>
+        <scope>test</scope>
+      </dependency>
+<!--      <dependency>-->
+<!--        <groupId>net.javacrumbs.shedlock</groupId>-->
+<!--        <artifactId>shedlock-provider-jdbc-template</artifactId>-->
+<!--        <version>5.16.0</version>-->
+<!--      </dependency>-->
+<!--          <dependency>-->
+<!--      <groupId>com.ibm.icu</groupId>-->
+<!--      <artifactId>icu4j</artifactId>-->
+<!--      <version>77.1</version>-->
+<!--      <scope>compile</scope>-->
+<!--    </dependency>-->
+    </dependencies>
+  </dependencyManagement>
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>3.6.0</version>
+          <configuration>
+            <trimStackTrace>false</trimStackTrace>
+            <redirectTestOutputToFile>true</redirectTestOutputToFile>
+          </configuration>
+        </plugin>
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-failsafe-plugin</artifactId>
+          <version>3.6.0</version>
+          <executions>
+            <execution>
+              <goals>
+                <goal>integration-test</goal>
+                <goal>verify</goal>
+              </goals>
+            </execution>
+          </executions>
+          <configuration>
+            <trimStackTrace>false</trimStackTrace>
+            <redirectTestOutputToFile>true</redirectTestOutputToFile>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+</project>
