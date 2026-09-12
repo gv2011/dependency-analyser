@@ -13,51 +13,11 @@
   <artifactId>dependency-analyser-shared</artifactId>
   <packaging>jar</packaging>
 
-  <name>Major Updates Shared</name>
+  <name>Dependency Analyser Shared</name>
   <description>
-    Small, low-dependency module shared by both major-updates-maven-plugin and
-    major-updates-invoker: UpdateResult/UpdateResults (flat records, no Maven
-    dependency) plus
-    their Gson-based JSON codecs, and PomPropertiesReader (reads a jar's own
-    archiver-generated
-    pom.properties). One shared implementation rather than each module
-    duplicating its own.
+    Empty for now. Reserved for code genuinely needed by both
+    dependency-analyser-api and dependency-analyser-implementation, but not
+    part of the api itself.
   </description>
 
-  <dependencies>
-    <dependency>
-      <groupId>com.google.code.gson</groupId>
-      <artifactId>gson</artifactId>
-    </dependency>
-
-    <!-- @Nullable on UpdateResults.pluginVersion; same convention already used
-    in
-         major-updates-maven-plugin's MajorUpdatesMojo, reused here rather than
-    introducing a
-         second nullable-annotation source. -->
-    <dependency>
-      <groupId>com.google.code.findbugs</groupId>
-      <artifactId>jsr305</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.hamcrest</groupId>
-      <artifactId>hamcrest</artifactId>
-      <scope>test</scope>
-    </dependency>
-  </dependencies>
-
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-failsafe-plugin</artifactId>
-      </plugin>
-    </plugins>
-  </build>
 </project>

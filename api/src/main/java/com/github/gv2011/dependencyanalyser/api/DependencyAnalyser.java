@@ -1,9 +1,10 @@
 package com.github.gv2011.dependencyanalyser.api;
 
 import java.nio.file.Path;
-import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.ServiceLoader;
+
+import com.github.gv2011.util.icol.ISet;
 
 /**
  * Entry point for analysing a Maven project already checked out on disk.
@@ -31,6 +32,6 @@ public interface DependencyAnalyser {
    * @param projectDirectory directory containing the module's {@code pom.xml}
    * @param classpath which classpath to resolve; see {@link Classpath}
    */
-  List<ResolvedDependency> resolvedDependencies(Path projectDirectory, Classpath classpath);
+  ISet<ResolvedDependency> resolvedDependencies(Path projectDirectory, Classpath classpath);
 
 }

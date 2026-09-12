@@ -5,12 +5,10 @@ import java.util.Optional;
 /**
  * One artifact on a resolved classpath, after Maven's own conflict
  * resolution — corresponds to one line of {@code mvn dependency:list} output.
+ * A specific version of a {@link GroupAndArtifact} — one edition, not the
+ * publication itself.
  */
-public interface ResolvedDependency {
-
-  String groupId();
-
-  String artifactId();
+public interface ResolvedDependency extends GroupAndArtifact {
 
   /**
    * Absent for the common case of no classifier (a plain jar); present for
