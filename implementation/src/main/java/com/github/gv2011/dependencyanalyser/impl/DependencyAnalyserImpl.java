@@ -2,12 +2,7 @@ package com.github.gv2011.dependencyanalyser.impl;
 
 import static com.github.gv2011.util.BeanUtils.beanBuilder;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Optional;
 
 import org.apache.maven.cli.MavenApiImpl;
@@ -42,25 +37,7 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
 
   @Override
   public ISet<ResolvedDependency> resolvedDependencies(final Path projectDirectory, final Classpath classpath) {
-    final Path outputFile;
-    try {
-      outputFile = Files.createTempFile("dependency-list-", ".txt");
-    }
-    catch(final IOException e) {
-      throw new UncheckedIOException(e);
-    }
-    try {
-      runDependencyList(projectDirectory, includeScope(classpath), outputFile);
-      return parseOutputFile(outputFile);
-    }
-    finally {
-      try {
-        Files.deleteIfExists(outputFile);
-      }
-      catch(final IOException e) {
-        throw new UncheckedIOException(e);
-      }
-    }
+    return parseOutput(runDependencyList(projectDirectory, includeScope(classpath)));
   }
 
   /**
@@ -77,16 +54,19 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
     };
   }
 
-  private void runDependencyList(
-    final Path projectDirectory, final String includeScope, final Path outputFile
-  ) {
+  /**
+   * No {@code -DoutputFile} - dependency:list writes its result to
+   * System.out by default, which MavenApi captures and returns via
+   * MavenApiResult.output() (see CapturedSystemOut); nothing is written to
+   * disk.
+   */
+  private String runDependencyList(final Path projectDirectory, final String includeScope) {
     final MavenApiResult result = mavenApi.doMain(
       new String[]{
         "-N", // this project directory only, not a reactor recursion
         "-B", // batch mode: no interactive prompts
         "dependency:list",
         "-DincludeScope=" + includeScope,
-        "-DoutputFile=" + outputFile.toAbsolutePath(),
       },
       projectDirectory
     );
@@ -98,20 +78,12 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
       result.exceptions().forEach(toThrow::addSuppressed);
       throw toThrow;
     }
+    return result.output();
   }
 
-  private static ISet<ResolvedDependency> parseOutputFile(final Path outputFile) {
-    final List<String> lines;
-    try {
-      lines = Files.readAllLines(outputFile, StandardCharsets.UTF_8);
-    }
-    catch(final IOException e) {
-      throw new UncheckedIOException(e);
-    }
+  private static ISet<ResolvedDependency> parseOutput(final String output) {
     final var result = ICollections.<ResolvedDependency>setBuilder();
-    for(final String rawLine: lines) {
-      parseLine(rawLine).ifPresent(result::add);
-    }
+    output.lines().forEach(rawLine -> parseLine(rawLine).ifPresent(result::add));
     return result.build();
   }
 

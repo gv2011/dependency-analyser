@@ -27,8 +27,11 @@ import com.github.gv2011.util.icol.Opt;
 /**
  * Outcome of a {@link MavenApiImpl} invocation. Carries the real exceptions
  * Maven itself collected, unconverted and unswallowed (no exit-code
- * translation, no console logging as a side effect), plus the coordinates
- * of the project that was actually executed against, when available.
+ * translation, no console logging as a side effect), the coordinates of
+ * the project that was actually executed against, when available, and
+ * whatever the invoked goal wrote to System.out (see
+ * {@link CapturedSystemOut}) - many Maven goals have no other way to
+ * report their findings.
  *
  * <p>An empty {@link #exceptions()} list means the build succeeded. An
  * absent {@link #project()} means execution failed before any project
@@ -40,5 +43,7 @@ public interface MavenApiResult extends Bean{
   IList<Throwable> exceptions();
 
   Opt<MavenCoordinates> project();
+
+  String output();
 
 }

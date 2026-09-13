@@ -37,9 +37,11 @@ import org.codehaus.plexus.classworlds.realm.ClassRealm;
 import org.codehaus.plexus.classworlds.realm.NoSuchRealmException;
 
 import com.github.gv2011.dependencyanalyser.impl.Conversions;
+import com.github.gv2011.dependencyanalyser.mvnapi.CapturedSystemOut;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenApi;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenApiResult;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenCoordinates;
+import com.github.gv2011.dependencyanalyser.mvnapi.TemporarySystemProperty;
 import com.github.gv2011.util.icol.ICollections;
 import com.github.gv2011.util.icol.Opt;
 
@@ -55,15 +57,20 @@ import com.github.gv2011.util.icol.Opt;
  * inherited entry points are overridden/hidden below to throw immediately,
  * so an accidental call surfaces as a clear failure rather than silently
  * running the old behaviour.
+ *
+ * <p>Deliberately minimal: the two supporting mechanisms it needs
+ * (TemporarySystemProperty, CapturedSystemOut) are both genuinely
+ * Maven-independent, so they live in the mvnapi package instead of here.
  */
 public class MavenApiImpl extends MavenCliBase implements MavenApi{
 
   /**
-   * Serialises calls to doMain(String[], String) across all MavenApiImpl
+   * Serialises calls to doMain(String[], Path) across all MavenApiImpl
    * instances and threads. Necessary, not just defensive: MavenCliBase's
    * own internals read the maven.multiModuleProjectDirectory system
    * property, which is JVM-global state - two concurrent invocations with
-   * different working directories would otherwise race on it.
+   * different project directories would otherwise race on it. This also
+   * makes the CapturedSystemOut swap below safe, for the same reason.
    */
   private static final Object DO_MAIN_LOCK = new Object();
 
@@ -71,25 +78,20 @@ public class MavenApiImpl extends MavenCliBase implements MavenApi{
     super();
   }
 
-  /**
-   * Runs Maven against the given working directory. Never reads or writes
-   * System.out/System.err, never converts what happened into a bare exit
-   * code - see MavenApiResult. Thread-safe: see DO_MAIN_LOCK.
-   */
   @Override
-  public MavenApiResult doMain(final String[] args, final Path workingDirectory) {
-    final String absoluteWorkingDirectory = workingDirectory.toAbsolutePath().toString();
+  public MavenApiResult doMain(final String[] args, final Path projectDirectory) {
+    final String absoluteProjectDirectory = projectDirectory.toAbsolutePath().toString();
     synchronized(DO_MAIN_LOCK) {
       try(
         TemporarySystemProperty ignored =
-          new TemporarySystemProperty(MULTIMODULE_PROJECT_DIRECTORY, absoluteWorkingDirectory)
+          new TemporarySystemProperty(MULTIMODULE_PROJECT_DIRECTORY, absoluteProjectDirectory)
       ){
-        return doMainLocked(args, absoluteWorkingDirectory);
+        return doMainLocked(args, absoluteProjectDirectory);
       }
     }
   }
 
-  private MavenApiResult doMainLocked(final String[] args, final String workingDirectory) {
+  private MavenApiResult doMainLocked(final String[] args, final String projectDirectory) {
     final Set<String> realms;
     if (classWorld != null) {
       realms = new HashSet<>();
@@ -102,7 +104,7 @@ public class MavenApiImpl extends MavenCliBase implements MavenApi{
 
     try {
       final CliRequest cliRequest = new CliRequest(args, classWorld);
-      cliRequest.workingDirectory = workingDirectory;
+      cliRequest.workingDirectory = projectDirectory;
       return run(cliRequest);
     } finally {
       if (classWorld != null) {
@@ -128,6 +130,11 @@ public class MavenApiImpl extends MavenCliBase implements MavenApi{
    * exceptions and the project's coordinates go straight into
    * MavenApiResult.
    *
+   * <p>Wraps the whole pipeline in CapturedSystemOut, not just the
+   * execute() step, since an earlier step could in principle also write to
+   * System.out; the captured text ends up in MavenApiResult.output()
+   * either way (success or failure).
+   *
    * <p>Scope note (unchanged from the previous refactor): informativeCommands
    * and encryption below are inherited as-is from MavenCliBase and can
    * still throw ExitException / print via System.out/System.err internally
@@ -135,29 +142,32 @@ public class MavenApiImpl extends MavenCliBase implements MavenApi{
    * well-formed arguments this project always passes, not rewritten here.
    */
   private MavenApiResult run(final CliRequest cliRequest) {
-    PlexusContainer localContainer = null;
-    try {
-      initialize(cliRequest);
-      cli(cliRequest);
-      properties(cliRequest);
-      logging(cliRequest);
-      informativeCommands(cliRequest);
-      version(cliRequest);
-      localContainer = container(cliRequest);
-      commands(cliRequest);
-      configure(cliRequest);
-      toolchains(cliRequest);
-      populateRequest(cliRequest);
-      encryption(cliRequest);
-      return executeRequest(cliRequest);
-    } catch (final Exception e) {
-      return beanBuilder(MavenApiResult.class)
-        .set(MavenApiResult::exceptions).to(ICollections.listOf((Throwable)e))
-        .build()
-      ;
-    } finally {
-      if (localContainer != null) {
-        localContainer.dispose();
+    try(CapturedSystemOut capturedOut = new CapturedSystemOut()) {
+      PlexusContainer localContainer = null;
+      try {
+        initialize(cliRequest);
+        cli(cliRequest);
+        properties(cliRequest);
+        logging(cliRequest);
+        informativeCommands(cliRequest);
+        version(cliRequest);
+        localContainer = container(cliRequest);
+        commands(cliRequest);
+        configure(cliRequest);
+        toolchains(cliRequest);
+        populateRequest(cliRequest);
+        encryption(cliRequest);
+        return executeRequest(cliRequest, capturedOut);
+      } catch (final Exception e) {
+        return beanBuilder(MavenApiResult.class)
+          .set(MavenApiResult::exceptions).to(ICollections.listOf((Throwable)e))
+          .set(MavenApiResult::output).to(capturedOut.capturedText())
+          .build()
+        ;
+      } finally {
+        if (localContainer != null) {
+          localContainer.dispose();
+        }
       }
     }
   }
@@ -167,7 +177,9 @@ public class MavenApiImpl extends MavenCliBase implements MavenApi{
    * used to do, minus the console error-summary printing and the
    * REACTOR_FAIL_NEVER special case.
    */
-  private MavenApiResult executeRequest(final CliRequest cliRequest) throws MavenExecutionRequestPopulationException {
+  private MavenApiResult executeRequest(
+    final CliRequest cliRequest, final CapturedSystemOut capturedOut
+  ) throws MavenExecutionRequestPopulationException {
     final MavenExecutionRequest request = executionRequestPopulator.populateDefaults(cliRequest.request);
 
     eventSpyDispatcher.onEvent(request);
@@ -185,6 +197,7 @@ public class MavenApiImpl extends MavenCliBase implements MavenApi{
     return beanBuilder(MavenApiResult.class)
       .set(MavenApiResult::exceptions).to(ICollections.listFrom(result.getExceptions()))
       .set(MavenApiResult::project).to(project)
+      .set(MavenApiResult::output).to(capturedOut.capturedText())
       .build()
     ;
   }
@@ -199,14 +212,14 @@ public class MavenApiImpl extends MavenCliBase implements MavenApi{
   @Override
   public int doMain(final CliRequest cliRequest) {
     throw new UnsupportedOperationException(
-      "Not supported on MavenApi - use doMain(String[], String), which returns MavenApiResult."
+      "Not supported on MavenApi - use doMain(String[], Path), which returns MavenApiResult."
     );
   }
 
   @Override
   public int doMain(final String[] args, final String workingDirectory, final PrintStream stdout, final PrintStream stderr) {
     throw new UnsupportedOperationException(
-      "Not supported on MavenApi - use doMain(String[], String), which returns MavenApiResult."
+      "Not supported on MavenApi - use doMain(String[], Path), which returns MavenApiResult."
     );
   }
 
