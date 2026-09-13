@@ -1,36 +1,180 @@
 package com.github.gv2011.dependencyanalyser.impl;
 
-import static com.github.gv2011.dependencyanalyser.api.MavenScope.COMPILE;
 import static com.github.gv2011.util.BeanUtils.beanBuilder;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Optional;
+
+import org.apache.maven.cli.MavenCli;
 
 import com.github.gv2011.dependencyanalyser.api.ArtifactIdentity;
 import com.github.gv2011.dependencyanalyser.api.Classpath;
 import com.github.gv2011.dependencyanalyser.api.DependencyAnalyser;
+import com.github.gv2011.dependencyanalyser.api.MavenScope;
 import com.github.gv2011.dependencyanalyser.api.ResolvedDependency;
 import com.github.gv2011.dependencyanalyser.api.Version;
 import com.github.gv2011.util.icol.ICollections;
 import com.github.gv2011.util.icol.ISet;
 
+/**
+ * Embeds Maven via {@link MavenCli} and drives the real, unmodified
+ * {@code dependency:list} goal, rather than re-implementing dependency
+ * resolution/scope-inclusion logic directly against lower-level Maven APIs.
+ * Chosen over the alternative (resolving via {@code ProjectBuilder} plus the
+ * repository system directly, skipping goal execution) because
+ * {@code dependency:list}'s {@code includeScope} handling is a real, tested,
+ * documented mechanism -- reusing it avoids re-deriving which scopes belong
+ * on which classpath ourselves. This trade-off can be revisited if driving a
+ * full goal execution per call turns out to be too slow or too fragile in
+ * practice.
+ */
 public class DependencyAnalyserImpl implements DependencyAnalyser{
 
   @Override
   public ISet<ResolvedDependency> resolvedDependencies(final Path projectDirectory, final Classpath classpath) {
-    return ICollections.<ResolvedDependency>setBuilder()
-      .add(beanBuilder(ResolvedDependency.class)
-        .set(ResolvedDependency::identity).to(beanBuilder(ArtifactIdentity.class)
-          .set(ArtifactIdentity::groupId).to("some.group")
-          .set(ArtifactIdentity::artifactId).to("artifact-1")
-          .set(ArtifactIdentity::type).to("jar")
-          .build()
+    final Path outputFile;
+    try {
+      outputFile = Files.createTempFile("dependency-list-", ".txt");
+    }
+    catch(final IOException e) {
+      throw new UncheckedIOException(e);
+    }
+    try {
+      runDependencyList(projectDirectory, includeScope(classpath), outputFile);
+      return parseOutputFile(outputFile);
+    }
+    finally {
+      try {
+        Files.deleteIfExists(outputFile);
+      }
+      catch(final IOException e) {
+        throw new UncheckedIOException(e);
+      }
+    }
+  }
+
+  /**
+   * Maps our {@link Classpath} to dependency:list's own {@code includeScope}
+   * values. Per its reference documentation: "runtime" includes compile and
+   * runtime scope; "test" includes compile, runtime and test scope (and
+   * handles provided/system correctly) -- this is Maven's own tested
+   * scope-inclusion logic, not re-derived here.
+   */
+  private static String includeScope(final Classpath classpath) {
+    return switch(classpath) {
+      case MAIN -> "runtime";
+      case TEST -> "test";
+    };
+  }
+
+  /**
+   * Not thread-safe / not reentrant: {@link MavenCli#doMain} sets the
+   * {@code maven.multiModuleProjectDirectory} system property and
+   * temporarily replaces {@code System.out}/{@code System.err} for the
+   * duration of the call (confirmed against its own source/behaviour in an
+   * earlier session; not independently re-verified here). Callers must not
+   * invoke this concurrently from multiple threads.
+   */
+  private static void runDependencyList(
+    final Path projectDirectory, final String includeScope, final Path outputFile
+  ) {
+    // MavenCli requires this system property to be set; normally the `mvn`
+    // launcher script sets it, which programmatic embedding bypasses.
+    System.setProperty(
+      MavenCli.MULTIMODULE_PROJECT_DIRECTORY,
+      projectDirectory.toAbsolutePath().toString()
+    );
+    final ByteArrayOutputStream out = new ByteArrayOutputStream();
+    final ByteArrayOutputStream err = new ByteArrayOutputStream();
+    final int exitCode;
+    try(
+      PrintStream outStream = new PrintStream(out, true, StandardCharsets.UTF_8);
+      PrintStream errStream = new PrintStream(err, true, StandardCharsets.UTF_8);
+    ){
+      exitCode = new MavenCli().doMain(
+        new String[]{
+          "-N", // this project directory only, not a reactor recursion
+          "-B", // batch mode: no interactive prompts
+          "dependency:list",
+          "-DincludeScope=" + includeScope,
+          "-DoutputFile=" + outputFile.toAbsolutePath(),
+        },
+        projectDirectory.toAbsolutePath().toString(),
+        outStream,
+        errStream
+      );
+    }
+    if(exitCode!=0) {
+      throw new RuntimeException(
+        "mvn dependency:list failed with exit code " + exitCode + "."
+        + "\nstdout:\n" + out.toString(StandardCharsets.UTF_8)
+        + "\nstderr:\n" + err.toString(StandardCharsets.UTF_8)
+      );
+    }
+  }
+
+  private static ISet<ResolvedDependency> parseOutputFile(final Path outputFile) {
+    final List<String> lines;
+    try {
+      lines = Files.readAllLines(outputFile, StandardCharsets.UTF_8);
+    }
+    catch(final IOException e) {
+      throw new UncheckedIOException(e);
+    }
+    final var result = ICollections.<ResolvedDependency>setBuilder();
+    for(final String rawLine: lines) {
+      parseLine(rawLine).ifPresent(result::add);
+    }
+    return result.build();
+  }
+
+  /**
+   * One line of {@code mvn dependency:list} output is
+   * {@code groupId:artifactId:type:version:scope}, or, when a classifier is
+   * present, {@code groupId:artifactId:type:classifier:version:scope} --
+   * matching Maven's own {@code Artifact} coordinate-string format. An
+   * optional {@code  -- module <name>} suffix (JPMS automatic-module-name
+   * info, seen when resolving on a JDK that reports it) is stripped first if
+   * present.
+   *
+   * <p>Not verified against real output (no Maven available in the
+   * environment this was written in) -- tolerant of anything that isn't a
+   * 5- or 6-field coordinate line (blank lines, a possible banner line),
+   * treating those as not a dependency line rather than failing.
+   */
+  private static Optional<ResolvedDependency> parseLine(final String rawLine) {
+    final String line = rawLine.split(" -- ", 2)[0].strip();
+    final String[] parts = line.split(":");
+    if(parts.length!=5 && parts.length!=6) {
+      return Optional.empty();
+    }
+    final String groupId = parts[0];
+    final String artifactId = parts[1];
+    final String type = parts[2];
+    final Optional<String> classifier = parts.length==6 ? Optional.of(parts[3]) : Optional.empty();
+    final String version = parts[parts.length-2];
+    final MavenScope scope = MavenScope.valueOf(parts[parts.length-1].toUpperCase());
+    return Optional.of(
+      beanBuilder(ResolvedDependency.class)
+        .set(ResolvedDependency::identity).to(
+          beanBuilder(ArtifactIdentity.class)
+            .set(ArtifactIdentity::groupId).to(groupId)
+            .set(ArtifactIdentity::artifactId).to(artifactId)
+            .set(ArtifactIdentity::classifier).to(classifier)
+            .set(ArtifactIdentity::type).to(type)
+            .build()
         )
-        .set(ResolvedDependency::version).to(parseVersion("1.2.3"))
-        .set(ResolvedDependency::scope).to(COMPILE)
+        .set(ResolvedDependency::version).to(VersionImpl.parse(version))
+        .set(ResolvedDependency::scope).to(scope)
         .build()
-      )
-      .build()
-    ;
+    );
   }
 
   @Override

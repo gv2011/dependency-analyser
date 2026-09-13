@@ -15,9 +15,8 @@
 
   <name>Dependency Analyser Implementation</name>
   <description>
-    Empty for now. Will hold the embedded-MavenCli-based implementation of
-    the dependency-analyser-api interfaces, registered via ServiceLoader
-    (META-INF/services).
+    Embedded-MavenCli-based implementation of the dependency-analyser-api
+    interfaces, registered via ServiceLoader (META-INF/services).
   </description>
 
   <dependencies>
@@ -26,7 +25,36 @@
       <artifactId>dependency-analyser-api</artifactId>
       <version>${project.version}</version>
     </dependency>
-    
+
+    <dependency>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-embedder</artifactId>
+    </dependency>
+    <!-- See root pom.xml for why this is required (MNG-5995). -->
+    <dependency>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-compat</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.maven.resolver</groupId>
+      <artifactId>maven-resolver-connector-basic</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.maven.resolver</groupId>
+      <artifactId>maven-resolver-transport-http</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.maven.resolver</groupId>
+      <artifactId>maven-resolver-transport-file</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+
     <dependency>
       <groupId>com.github.gv2011</groupId>
       <artifactId>util-gcol</artifactId>
@@ -47,13 +75,13 @@
       <artifactId>gsoncore</artifactId>
       <scope>runtime</scope>
     </dependency>
-    
+
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
       <scope>test</scope>
     </dependency>
-    
+
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
