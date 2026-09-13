@@ -130,6 +130,21 @@ import static org.apache.maven.shared.utils.logging.MessageUtils.buffer;
 // TODO push all common bits back to plexus cli and prepare for transition to Guice. We don't need 50 ways to make CLIs
 
 /**
+ * A near-exact copy of the real org.apache.maven.cli.MavenCli (from
+ * maven-embedder), with two kinds of change from the original:
+ *
+ * <p>1. Renamed from MavenCli to MavenCliBase, including its own internal
+ * self-references (e.g. a constructor call that read {@code new
+ * MavenCli()} now reads {@code new MavenCliBase()}). These renaming-only
+ * changes are not marked individually.
+ *
+ * <p>2. A small number of fields and methods were widened from private to
+ * protected, so that the MavenApi subclass can call them. Every one of
+ * these is marked with the comment "DIFF-FROM-MAVENCLI" right above it -
+ * search for that exact string to find all ten of them. Nothing else in
+ * this file differs from the real MavenCli's own logic; it is not
+ * otherwise rewritten, fixed, or improved.
+ *
  * @author Jason van Zyl
  */
 public class MavenCliBase {
@@ -159,6 +174,7 @@ public class MavenCliBase {
 
     public static final String STYLE_COLOR_PROPERTY = "style.color";
 
+    // DIFF-FROM-MAVENCLI: was private; MavenApi's new doMain(String[], String) reads this.
     protected ClassWorld classWorld;
 
     private LoggerManager plexusLoggerManager;
@@ -167,12 +183,15 @@ public class MavenCliBase {
 
     private Logger slf4jLogger;
 
+    // DIFF-FROM-MAVENCLI: was private; MavenApi's new executeRequest(CliRequest) uses this.
     protected EventSpyDispatcher eventSpyDispatcher;
 
     private ModelProcessor modelProcessor;
 
+    // DIFF-FROM-MAVENCLI: was private; MavenApi's new executeRequest(CliRequest) uses this.
     protected Maven maven;
 
+    // DIFF-FROM-MAVENCLI: was private; MavenApi's new executeRequest(CliRequest) uses this.
     protected MavenExecutionRequestPopulator executionRequestPopulator;
 
     private ToolchainsBuilder toolchainsBuilder;
@@ -425,6 +444,7 @@ public class MavenCliBase {
         }
     }
 
+    // DIFF-FROM-MAVENCLI: was private; called from MavenApi's new run(CliRequest).
     protected void informativeCommands(CliRequest cliRequest) throws ExitException {
         if (cliRequest.commandLine.hasOption(CLIManager.HELP)) {
             cliManager.displayHelp(System.out);
@@ -537,12 +557,14 @@ public class MavenCliBase {
         slf4jLogger = slf4jLoggerFactory.getLogger(this.getClass().getName());
     }
 
+    // DIFF-FROM-MAVENCLI: was private; called from MavenApi's new run(CliRequest).
     protected void version(CliRequest cliRequest) {
         if (cliRequest.debug || cliRequest.commandLine.hasOption(CLIManager.SHOW_VERSION)) {
             System.out.println(CLIReportingUtils.showVersion());
         }
     }
 
+    // DIFF-FROM-MAVENCLI: was private; called from MavenApi's new run(CliRequest).
     protected void commands(CliRequest cliRequest) {
         if (cliRequest.showErrors) {
             slf4jLogger.info("Error stacktraces are turned on.");
@@ -837,6 +859,7 @@ public class MavenCliBase {
     //
     // This should probably be a separate tool and not be baked into Maven.
     //
+    // DIFF-FROM-MAVENCLI: was private; called from MavenApi's new run(CliRequest).
     protected void encryption(CliRequest cliRequest) throws Exception {
         if (cliRequest.commandLine.hasOption(CLIManager.ENCRYPT_MASTER_PASSWORD)) {
             String passwd = cliRequest.commandLine.getOptionValue(CLIManager.ENCRYPT_MASTER_PASSWORD);
@@ -1060,6 +1083,7 @@ public class MavenCliBase {
 
     private static final String ANSI_RESET = "\u001B\u005Bm";
 
+    // DIFF-FROM-MAVENCLI: was private; called from MavenApi's new run(CliRequest).
     protected void configure(CliRequest cliRequest) throws Exception {
         //
         // This is not ideal but there are events specifically for configuration from the CLI which I don't
@@ -1190,6 +1214,7 @@ public class MavenCliBase {
         return defaultLocation;
     }
 
+    // DIFF-FROM-MAVENCLI: was private; called from MavenApi's new run(CliRequest).
     protected MavenExecutionRequest populateRequest(CliRequest cliRequest) {
         return populateRequest(cliRequest, cliRequest.request);
     }
