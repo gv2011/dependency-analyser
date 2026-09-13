@@ -12,7 +12,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 
-import org.apache.maven.cli.MavenCli;
+import org.apache.maven.cli.MavenApi;
 
 import com.github.gv2011.dependencyanalyser.api.ArtifactIdentity;
 import com.github.gv2011.dependencyanalyser.api.Classpath;
@@ -88,7 +88,7 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
     // MavenCli requires this system property to be set; normally the `mvn`
     // launcher script sets it, which programmatic embedding bypasses.
     System.setProperty(
-      MavenCli.MULTIMODULE_PROJECT_DIRECTORY,
+      MavenApi.MULTIMODULE_PROJECT_DIRECTORY,
       projectDirectory.toAbsolutePath().toString()
     );
     final ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -98,7 +98,7 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
       PrintStream outStream = new PrintStream(out, true, StandardCharsets.UTF_8);
       PrintStream errStream = new PrintStream(err, true, StandardCharsets.UTF_8);
     ){
-      exitCode = new MavenCli().doMain(
+      exitCode = new MavenApi().doMain(
         new String[]{
           "-N", // this project directory only, not a reactor recursion
           "-B", // batch mode: no interactive prompts
