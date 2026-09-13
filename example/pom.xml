@@ -48,6 +48,13 @@
                    (confirmed directly: MissingProjectException, "no POM in
                    this directory"). -->
               <includePom>true</includePom>
+              <!-- Default forceCreation=false skips regenerating the jar
+                   when sources aren't newer than the existing one - which
+                   doesn't account for a plugin *configuration* change
+                   (e.g. includePom above) with no source file touched.
+                   This module's only purpose is being a reliable, current
+                   test fixture, so always regenerate. -->
+              <forceCreation>true</forceCreation>
             </configuration>
           </execution>
         </executions>
