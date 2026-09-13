@@ -16,13 +16,17 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.maven.cli;
+package com.github.gv2011.dependencyanalyser.mvnapi;
 
-import java.util.List;
-import java.util.Optional;
+import org.apache.maven.cli.MavenApiImpl;
+
+import com.github.gv2011.dependencyanalyser.api.ResolvedDependency;
+import com.github.gv2011.util.beans.Bean;
+import com.github.gv2011.util.icol.IList;
+import com.github.gv2011.util.icol.Opt;
 
 /**
- * Outcome of a {@link MavenApi} invocation. Carries the real exceptions
+ * Outcome of a {@link MavenApiImpl} invocation. Carries the real exceptions
  * Maven itself collected, unconverted and unswallowed (no exit-code
  * translation, no console logging as a side effect), plus the coordinates
  * of the project that was actually executed against, when available.
@@ -32,18 +36,10 @@ import java.util.Optional;
  * could be built at all (e.g. the POM itself could not be read) - not
  * every failure has a project to report.
  */
-public record MavenApiResult(List<Throwable> exceptions, Optional<ProjectCoordinates> project) {
+public interface MavenApiResult extends Bean{
 
-  public MavenApiResult {
-    exceptions = List.copyOf(exceptions);
-  }
+  IList<Throwable> exceptions();
 
-  /**
-   * groupId/artifactId/version as plain strings, matching Maven's own
-   * MavenProject getters directly - not the dependency-analyser-api's own
-   * ArtifactIdentity, since this type belongs to MavenApi's own,
-   * Maven-flavoured contract, not to our domain model.
-   */
-  public record ProjectCoordinates(String groupId, String artifactId, String version) {}
+  Opt<ResolvedDependency> project();
 
 }

@@ -1,8 +1,7 @@
 package com.github.gv2011.dependencyanalyser.api;
 
-import java.util.Optional;
-
 import com.github.gv2011.util.beans.Bean;
+import com.github.gv2011.util.icol.Opt;
 
 /**
  * The identity of a Maven artifact across all its released versions — e.g.
@@ -27,7 +26,7 @@ public interface ArtifactIdentity extends Bean{
    * Absent for the common case of no classifier (a plain jar); present for
    * e.g. {@code sources}, {@code tests}, or a platform-specific classifier.
    */
-  Optional<String> classifier();
+  Opt<String> classifier();
 
   /**
    * Packaging/type, e.g. {@code jar}, {@code pom}.

@@ -18,12 +18,13 @@
  */
 package org.apache.maven.cli;
 
+import static com.github.gv2011.util.BeanUtils.beanBuilder;
+import static com.github.gv2011.util.icol.ICollections.xStream;
+
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 import org.apache.maven.execution.MavenExecutionRequest;
@@ -33,6 +34,13 @@ import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.classworlds.ClassWorld;
 import org.codehaus.plexus.classworlds.realm.ClassRealm;
 import org.codehaus.plexus.classworlds.realm.NoSuchRealmException;
+
+import com.github.gv2011.dependencyanalyser.api.ResolvedDependency;
+import com.github.gv2011.dependencyanalyser.impl.Conversions;
+import com.github.gv2011.dependencyanalyser.mvnapi.MavenApi;
+import com.github.gv2011.dependencyanalyser.mvnapi.MavenApiResult;
+import com.github.gv2011.util.icol.ICollections;
+import com.github.gv2011.util.icol.Opt;
 
 /**
  * A thin subclass of MavenCliBase (a visibility-relaxed copy of the real
@@ -47,14 +55,10 @@ import org.codehaus.plexus.classworlds.realm.NoSuchRealmException;
  * so an accidental call surfaces as a clear failure rather than silently
  * running the old behaviour.
  */
-public class MavenApi extends MavenCliBase {
+public class MavenApiImpl extends MavenCliBase implements MavenApi{
 
-  public MavenApi() {
+  public MavenApiImpl() {
     super();
-  }
-
-  public MavenApi(final ClassWorld classWorld) {
-    super(classWorld);
   }
 
   /**
@@ -62,6 +66,7 @@ public class MavenApi extends MavenCliBase {
    * System.out/System.err, never converts what happened into a bare exit
    * code - see MavenApiResult.
    */
+  @Override
   public MavenApiResult doMain(final String[] args, final String workingDirectory) {
     final Set<String> realms;
     if (classWorld != null) {
@@ -124,7 +129,10 @@ public class MavenApi extends MavenCliBase {
       encryption(cliRequest);
       return executeRequest(cliRequest);
     } catch (final Exception e) {
-      return new MavenApiResult(List.of(e), Optional.empty());
+      return beanBuilder(MavenApiResult.class)
+        .set(MavenApiResult::exceptions).to(ICollections.listOf((Throwable)e))
+        .build()
+      ;
     } finally {
       if (localContainer != null) {
         localContainer.dispose();
@@ -148,11 +156,15 @@ public class MavenApi extends MavenCliBase {
 
     eventSpyDispatcher.close();
 
-    final Optional<MavenApiResult.ProjectCoordinates> project = result.getTopologicallySortedProjects().stream()
-      .findFirst()
-      .map(p -> new MavenApiResult.ProjectCoordinates(p.getGroupId(), p.getArtifactId(), p.getVersion()));
-
-    return new MavenApiResult(new ArrayList<>(result.getExceptions()), project);
+    final Opt<ResolvedDependency> project = xStream(result.getTopologicallySortedProjects())
+      .tryFindFirst()
+      .map(Conversions::toResolvedDependency)
+    ;
+    return beanBuilder(MavenApiResult.class)
+      .set(MavenApiResult::exceptions).to(ICollections.listFrom(result.getExceptions()))
+      .set(MavenApiResult::project).to(project)
+      .build()
+    ;
   }
 
   // Everything below hides/overrides an inherited entry point that would

@@ -12,6 +12,7 @@ public enum MavenScope {
   PROVIDED,
   RUNTIME,
   TEST,
-  SYSTEM
+  SYSTEM,
+  NONE
 
 }

@@ -10,8 +10,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 
-import org.apache.maven.cli.MavenApi;
-import org.apache.maven.cli.MavenApiResult;
+import org.apache.maven.cli.MavenApiImpl;
 
 import com.github.gv2011.dependencyanalyser.api.ArtifactIdentity;
 import com.github.gv2011.dependencyanalyser.api.Classpath;
@@ -19,11 +18,14 @@ import com.github.gv2011.dependencyanalyser.api.DependencyAnalyser;
 import com.github.gv2011.dependencyanalyser.api.MavenScope;
 import com.github.gv2011.dependencyanalyser.api.ResolvedDependency;
 import com.github.gv2011.dependencyanalyser.api.Version;
+import com.github.gv2011.dependencyanalyser.mvnapi.MavenApi;
+import com.github.gv2011.dependencyanalyser.mvnapi.MavenApiResult;
 import com.github.gv2011.util.icol.ICollections;
 import com.github.gv2011.util.icol.ISet;
+import com.github.gv2011.util.icol.Opt;
 
 /**
- * Embeds Maven via {@link MavenApi} and drives the real, unmodified
+ * Embeds Maven via {@link MavenApiImpl} and drives the real, unmodified
  * {@code dependency:list} goal, rather than re-implementing dependency
  * resolution/scope-inclusion logic directly against lower-level Maven APIs.
  * Chosen over the alternative (resolving via {@code ProjectBuilder} plus the
@@ -35,6 +37,8 @@ import com.github.gv2011.util.icol.ISet;
  * practice.
  */
 public class DependencyAnalyserImpl implements DependencyAnalyser{
+
+  private final MavenApi mavenApi = MavenApi.createApi();
 
   @Override
   public ISet<ResolvedDependency> resolvedDependencies(final Path projectDirectory, final Classpath classpath) {
@@ -79,7 +83,7 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
    * duration of the call. Callers must not invoke this concurrently from
    * multiple threads.
    */
-  private static void runDependencyList(
+  private void runDependencyList(
     final Path projectDirectory, final String includeScope, final Path outputFile
   ) {
     // MavenApi requires this system property to be set; normally the `mvn`
@@ -88,7 +92,7 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
       MavenApi.MULTIMODULE_PROJECT_DIRECTORY,
       projectDirectory.toAbsolutePath().toString()
     );
-    final MavenApiResult result = new MavenApi().doMain(
+    final MavenApiResult result = mavenApi.doMain(
       new String[]{
         "-N", // this project directory only, not a reactor recursion
         "-B", // batch mode: no interactive prompts
@@ -146,18 +150,18 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
     final String groupId = parts[0];
     final String artifactId = parts[1];
     final String type = parts[2];
-    final Optional<String> classifier = parts.length==6 ? Optional.of(parts[3]) : Optional.empty();
+    final Opt<String> classifier = parts.length==6 ? Opt.of(parts[3]) : Opt.empty();
     final String version = parts[parts.length-2];
     final MavenScope scope = MavenScope.valueOf(parts[parts.length-1].toUpperCase());
     return Optional.of(
       beanBuilder(ResolvedDependency.class)
         .set(ResolvedDependency::identity).to(
           beanBuilder(ArtifactIdentity.class)
-            .set(ArtifactIdentity::groupId).to(groupId)
-            .set(ArtifactIdentity::artifactId).to(artifactId)
-            .set(ArtifactIdentity::classifier).to(classifier)
-            .set(ArtifactIdentity::type).to(type)
-            .build()
+          .set(ArtifactIdentity::groupId).to(groupId)
+          .set(ArtifactIdentity::artifactId).to(artifactId)
+          .set(ArtifactIdentity::classifier).to(classifier)
+          .set(ArtifactIdentity::type).to(type)
+          .build()
         )
         .set(ResolvedDependency::version).to(VersionImpl.parse(version))
         .set(ResolvedDependency::scope).to(scope)
