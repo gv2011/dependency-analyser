@@ -16,6 +16,7 @@
   <modules>
     <module>shared</module>
     <module>api</module>
+    <module>example</module>
     <module>implementation</module>
   </modules>
 

@@ -13,7 +13,7 @@ import com.github.gv2011.dependencyanalyser.api.ResolvedDependency;
 import com.github.gv2011.util.icol.ISet;
 
 /**
- * Actually shells out to embedded Maven and hits Maven Central -- runs under
+ * Actually shells out to embedded Maven and hits Maven Central - runs under
  * `mvn verify` (failsafe), not `mvn test`. Not run or verified in the
  * environment this was written in (no Maven available there).
  */

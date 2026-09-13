@@ -92,6 +92,37 @@
       <artifactId>hamcrest</artifactId>
       <scope>test</scope>
     </dependency>
+
+    <!-- Not used from the classpath directly - declared so the reactor
+         builds+installs the example module (with its sources attachment)
+         before this module's integration tests run, and so that
+         attachment is already resolved into the local repo by the time
+         ExampleProjectExtractionIT fetches it itself via dependency:unpack. -->
+    <dependency>
+      <groupId>com.github.gv2011</groupId>
+      <artifactId>dependency-analyser-example</artifactId>
+      <version>${project.version}</version>
+      <classifier>sources</classifier>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <configuration>
+          <systemPropertyVariables>
+            <!-- Java source can't reference ${project.version} directly;
+                 this is how ExampleProjectExtractionIT learns the exact
+                 version of the sources jar it needs to unpack (always
+                 equal to this reactor's own version). -->
+            <dependencyAnalyserExampleVersion>${project.version}</dependencyAnalyserExampleVersion>
+          </systemPropertyVariables>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
 
 </project>
