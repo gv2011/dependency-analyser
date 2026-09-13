@@ -22,6 +22,7 @@ import static com.github.gv2011.util.BeanUtils.beanBuilder;
 import static com.github.gv2011.util.icol.ICollections.xStream;
 
 import java.io.PrintStream;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -76,13 +77,14 @@ public class MavenApiImpl extends MavenCliBase implements MavenApi{
    * code - see MavenApiResult. Thread-safe: see DO_MAIN_LOCK.
    */
   @Override
-  public MavenApiResult doMain(final String[] args, final String workingDirectory) {
+  public MavenApiResult doMain(final String[] args, final Path workingDirectory) {
+    final String absoluteWorkingDirectory = workingDirectory.toAbsolutePath().toString();
     synchronized(DO_MAIN_LOCK) {
       try(
         TemporarySystemProperty ignored =
-          new TemporarySystemProperty(MULTIMODULE_PROJECT_DIRECTORY, workingDirectory)
+          new TemporarySystemProperty(MULTIMODULE_PROJECT_DIRECTORY, absoluteWorkingDirectory)
       ){
-        return doMainLocked(args, workingDirectory);
+        return doMainLocked(args, absoluteWorkingDirectory);
       }
     }
   }

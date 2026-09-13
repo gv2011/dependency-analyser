@@ -56,7 +56,7 @@ class ExampleProjectExtractionIT {
         "-Dartifact=com.github.gv2011:dependency-analyser-example:" + version + ":jar:sources",
         "-DoutputDirectory=" + tempDir.toAbsolutePath(),
       },
-      System.getProperty("user.dir")
+      Path.of(System.getProperty("user.dir"))
     );
     assertThat(
       "dependency:unpack failed: " + unpackResult.exceptions(),

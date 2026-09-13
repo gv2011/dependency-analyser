@@ -1,5 +1,7 @@
 package com.github.gv2011.dependencyanalyser.mvnapi;
 
+import java.nio.file.Path;
+
 import org.apache.maven.cli.MavenApiImpl;
 
 public interface MavenApi {
@@ -13,5 +15,5 @@ public interface MavenApi {
    * System.out/System.err, never converts what happened into a bare exit
    * code - see MavenApiResult.
    */
-  MavenApiResult doMain(final String[] args, final String workingDirectory);
+  MavenApiResult doMain(final String[] args, final Path workingDirectory);
 }

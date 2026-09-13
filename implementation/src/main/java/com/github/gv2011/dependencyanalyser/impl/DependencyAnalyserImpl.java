@@ -88,7 +88,7 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
         "-DincludeScope=" + includeScope,
         "-DoutputFile=" + outputFile.toAbsolutePath(),
       },
-      projectDirectory.toAbsolutePath().toString()
+      projectDirectory
     );
     if(!result.exceptions().isEmpty()) {
       final RuntimeException toThrow = new RuntimeException(
