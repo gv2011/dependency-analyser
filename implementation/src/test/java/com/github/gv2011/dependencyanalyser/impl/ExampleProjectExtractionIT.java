@@ -45,16 +45,13 @@ class ExampleProjectExtractionIT {
     // Absence here (unlike ReactorVersion's own general contract) IS an
     // error: an integration test runs under `mvn verify`, after
     // packaging, so this should always be present by the time this line
-    // runs - .orElseThrow(...) not independently confirmed as Opt's exact
-    // method name (couldn't verify Opt's API directly), but Opt mirrors
-    // java.util.Optional's naming throughout everywhere else it's used in
-    // this codebase.
-    final Version version = ReactorVersion.get().orElseThrow(() -> new IllegalStateException(
+    // runs.
+    final Version version = ReactorVersion.get().orElseThrowMsg(() ->
       "dependency-analyser-implementation's pom.properties not found on the classpath - required for "
       + "this integration test (it should always be present here, since integration tests run after "
       + "packaging). In Eclipse, this usually means Maven > Update Project (or a real 'mvn install') "
       + "hasn't been run since the module was last built."
-    ));
+    );
 
     final Path tempDir = Files.createTempDirectory("dependency-analyser-example-");
     System.out.println("Extracted dependency-analyser-example sources to: " + tempDir);
