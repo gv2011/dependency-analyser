@@ -82,7 +82,7 @@ public class MavenApiImpl extends MavenCliBase implements MavenApi{
   public MavenApiResult doMain(final String[] args, final Path projectDirectory) {
     final String absoluteProjectDirectory = projectDirectory.toAbsolutePath().toString();
     synchronized(DO_MAIN_LOCK) {
-      try(TemporarySystemProperty ignored =
+      try(TemporarySystemProperty _ =
         new TemporarySystemProperty(MULTIMODULE_PROJECT_DIRECTORY, absoluteProjectDirectory)
       ){
         return doMainLocked(args, absoluteProjectDirectory);
@@ -112,7 +112,7 @@ public class MavenApiImpl extends MavenCliBase implements MavenApi{
           if (!realms.contains(realmId)) {
             try {
               classWorld.disposeRealm(realmId);
-            } catch (final NoSuchRealmException ignored) {
+            } catch (final NoSuchRealmException _) {
               // can't happen
             }
           }
