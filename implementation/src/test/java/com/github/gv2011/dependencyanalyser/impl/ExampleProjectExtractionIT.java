@@ -66,14 +66,19 @@ class ExampleProjectExtractionIT {
 
     // Fail here, clearly, if extraction didn't actually produce a real
     // project - rather than several layers down inside embedded Maven's
-    // own MissingProjectException, which this exact case has hit before
-    // (a stale sources jar, built before includePom was added, still
-    // missing the POM despite the fix).
+    // own MissingProjectException, which this exact case has hit before:
+    // a stale sources jar in the local repo, from before includePom was
+    // added, still missing the POM. `mvn clean` alone, or Eclipse's
+    // "Maven > Update Project" alone, does not fix this - neither
+    // actually re-installs anything to the local repo; only a real
+    // `mvn install` (of at least the example module) does.
     final Path pomFile = tempDir.resolve("pom.xml");
     assertThat(
       "pom.xml missing from extracted sources jar at " + pomFile
-      + " - is example/pom.xml's maven-source-plugin execution still configured with includePom=true, "
-      + "and was the sources jar actually regenerated (see forceCreation) rather than reused stale?",
+      + " - most likely fix: run 'mvn install' (not just 'mvn clean', and not just Eclipse's "
+      + "'Maven > Update Project', neither of which re-installs anything to the local repo) "
+      + "for at least the example module, then re-run this test. If that doesn't help: is "
+      + "example/pom.xml's maven-source-plugin execution still configured with includePom=true?",
       Files.exists(pomFile),
       is(true)
     );
@@ -114,9 +119,10 @@ class ExampleProjectExtractionIT {
     try(InputStream in = ExampleProjectExtractionIT.class.getClassLoader().getResourceAsStream(resourcePath)) {
       if(in==null) {
         throw new IllegalStateException(
-          "Resource not found on classpath: " + resourcePath + " - is dependency-analyser-example "
-          + "on this module's test classpath, and has it actually been mvn-installed "
-          + "(or, in Eclipse, has Maven > Update Project been run since)?"
+          "Resource not found on classpath: " + resourcePath + " - dependency-analyser-example is not "
+          + "resolved. Most likely fix: run 'mvn install' (not just 'mvn clean', and not just Eclipse's "
+          + "'Maven > Update Project' - neither of those actually installs anything to the local repo) "
+          + "for at least the example module, then re-run this test."
         );
       }
       final Properties properties = new Properties();
