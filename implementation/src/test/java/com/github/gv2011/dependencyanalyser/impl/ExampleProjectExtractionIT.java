@@ -4,17 +4,14 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Objects;
-import java.util.Properties;
 
 import org.junit.jupiter.api.Test;
 
 import com.github.gv2011.dependencyanalyser.api.Classpath;
 import com.github.gv2011.dependencyanalyser.api.ResolvedDependency;
+import com.github.gv2011.dependencyanalyser.api.Version;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenApi;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenApiResult;
 import com.github.gv2011.util.icol.ISet;
@@ -41,7 +38,23 @@ class ExampleProjectExtractionIT {
 
   @Test
   void extractedExampleModuleHasSlf4jApi() throws IOException {
-    final String version = exampleModuleVersion();
+    // example shares this reactor's version with implementation (no module
+    // overrides its parent's version), so ReactorVersion.get() - which
+    // reads implementation's own pom.properties - is also example's
+    // correct version; no need for a separate read of example's own.
+    // Absence here (unlike ReactorVersion's own general contract) IS an
+    // error: an integration test runs under `mvn verify`, after
+    // packaging, so this should always be present by the time this line
+    // runs - .orElseThrow(...) not independently confirmed as Opt's exact
+    // method name (couldn't verify Opt's API directly), but Opt mirrors
+    // java.util.Optional's naming throughout everywhere else it's used in
+    // this codebase.
+    final Version version = ReactorVersion.get().orElseThrow(() -> new IllegalStateException(
+      "dependency-analyser-implementation's pom.properties not found on the classpath - required for "
+      + "this integration test (it should always be present here, since integration tests run after "
+      + "packaging). In Eclipse, this usually means Maven > Update Project (or a real 'mvn install') "
+      + "hasn't been run since the module was last built."
+    ));
 
     final Path tempDir = Files.createTempDirectory("dependency-analyser-example-");
     System.out.println("Extracted dependency-analyser-example sources to: " + tempDir);
@@ -100,37 +113,6 @@ class ExampleProjectExtractionIT {
       && d.identity().artifactId().equals("slf4j-api")
     );
     assertThat(containsSlf4jApi, is(true));
-  }
-
-  /**
-   * Reads dependency-analyser-example's own version from its
-   * pom.properties, published into the regular jar's
-   * META-INF/maven/&lt;groupId&gt;/&lt;artifactId&gt;/ path by every real
-   * Maven build (and, after an Eclipse "Maven &gt; Update Project", by
-   * m2e too) - the same classpath-resource technique the previous version
-   * of this project used to determine its own version at runtime, chosen
-   * specifically because it works the same way whether this test runs via
-   * `mvn verify` or directly from an IDE, unlike a system property a build
-   * plugin would have to set up front.
-   */
-  private static String exampleModuleVersion() throws IOException {
-    final String resourcePath =
-      "META-INF/maven/com.github.gv2011/dependency-analyser-example/pom.properties";
-    try(InputStream in = ExampleProjectExtractionIT.class.getClassLoader().getResourceAsStream(resourcePath)) {
-      if(in==null) {
-        throw new IllegalStateException(
-          "Resource not found on classpath: " + resourcePath + " - dependency-analyser-example is not "
-          + "resolved. Most likely fix: run 'mvn install' (not just 'mvn clean', and not just Eclipse's "
-          + "'Maven > Update Project' - neither of those actually installs anything to the local repo) "
-          + "for at least the example module, then re-run this test."
-        );
-      }
-      final Properties properties = new Properties();
-      properties.load(in);
-      return Objects.requireNonNull(
-        properties.getProperty("version"), "pom.properties has no 'version' property"
-      );
-    }
   }
 
 }
