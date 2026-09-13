@@ -41,6 +41,14 @@
             <goals>
               <goal>jar-no-fork</goal>
             </goals>
+            <configuration>
+              <!-- Without this, the sources jar contains only .java files,
+                   not the pom.xml - not enough for dependency:list to
+                   recognise the extracted copy as a project at all
+                   (confirmed directly: MissingProjectException, "no POM in
+                   this directory"). -->
+              <includePom>true</includePom>
+            </configuration>
           </execution>
         </executions>
       </plugin>
