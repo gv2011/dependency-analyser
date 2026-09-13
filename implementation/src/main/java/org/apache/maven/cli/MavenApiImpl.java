@@ -57,6 +57,15 @@ import com.github.gv2011.util.icol.Opt;
  */
 public class MavenApiImpl extends MavenCliBase implements MavenApi{
 
+  /**
+   * Serialises calls to doMain(String[], String) across all MavenApiImpl
+   * instances and threads. Necessary, not just defensive: MavenCliBase's
+   * own internals read the maven.multiModuleProjectDirectory system
+   * property, which is JVM-global state - two concurrent invocations with
+   * different working directories would otherwise race on it.
+   */
+  private static final Object DO_MAIN_LOCK = new Object();
+
   public MavenApiImpl() {
     super();
   }
@@ -64,10 +73,21 @@ public class MavenApiImpl extends MavenCliBase implements MavenApi{
   /**
    * Runs Maven against the given working directory. Never reads or writes
    * System.out/System.err, never converts what happened into a bare exit
-   * code - see MavenApiResult.
+   * code - see MavenApiResult. Thread-safe: see DO_MAIN_LOCK.
    */
   @Override
   public MavenApiResult doMain(final String[] args, final String workingDirectory) {
+    synchronized(DO_MAIN_LOCK) {
+      try(
+        TemporarySystemProperty ignored =
+          new TemporarySystemProperty(MULTIMODULE_PROJECT_DIRECTORY, workingDirectory)
+      ){
+        return doMainLocked(args, workingDirectory);
+      }
+    }
+  }
+
+  private MavenApiResult doMainLocked(final String[] args, final String workingDirectory) {
     final Set<String> realms;
     if (classWorld != null) {
       realms = new HashSet<>();

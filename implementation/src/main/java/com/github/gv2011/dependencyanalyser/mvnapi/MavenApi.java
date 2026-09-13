@@ -1,11 +1,8 @@
 package com.github.gv2011.dependencyanalyser.mvnapi;
 
 import org.apache.maven.cli.MavenApiImpl;
-import org.apache.maven.cli.MavenCliBase;
 
 public interface MavenApi {
-
-  public static final String MULTIMODULE_PROJECT_DIRECTORY = MavenCliBase.MULTIMODULE_PROJECT_DIRECTORY;
 
   static MavenApi createApi(){
     return new MavenApiImpl();

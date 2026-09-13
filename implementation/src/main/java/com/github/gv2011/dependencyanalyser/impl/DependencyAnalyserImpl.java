@@ -77,21 +77,9 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
     };
   }
 
-  /**
-   * Not thread-safe / not reentrant: sets the
-   * {@code maven.multiModuleProjectDirectory} system property for the
-   * duration of the call. Callers must not invoke this concurrently from
-   * multiple threads.
-   */
   private void runDependencyList(
     final Path projectDirectory, final String includeScope, final Path outputFile
   ) {
-    // MavenApi requires this system property to be set; normally the `mvn`
-    // launcher script sets it, which programmatic embedding bypasses.
-    System.setProperty(
-      MavenApi.MULTIMODULE_PROJECT_DIRECTORY,
-      projectDirectory.toAbsolutePath().toString()
-    );
     final MavenApiResult result = mavenApi.doMain(
       new String[]{
         "-N", // this project directory only, not a reactor recursion
@@ -130,7 +118,7 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
   /**
    * One line of {@code mvn dependency:list} output is
    * {@code groupId:artifactId:type:version:scope}, or, when a classifier is
-   * present, {@code groupId:artifactId:type:classifier:version:scope} --
+   * present, {@code groupId:artifactId:type:classifier:version:scope} -
    * matching Maven's own {@code Artifact} coordinate-string format. An
    * optional {@code  -- module <name>} suffix (JPMS automatic-module-name
    * info, seen when resolving on a JDK that reports it) is stripped first if
