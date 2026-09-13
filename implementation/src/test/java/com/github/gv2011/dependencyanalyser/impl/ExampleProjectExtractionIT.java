@@ -64,6 +64,29 @@ class ExampleProjectExtractionIT {
       is(true)
     );
 
+    // Fail here, clearly, if extraction didn't actually produce a real
+    // project - rather than several layers down inside embedded Maven's
+    // own MissingProjectException, which this exact case has hit before
+    // (a stale sources jar, built before includePom was added, still
+    // missing the POM despite the fix).
+    final Path pomFile = tempDir.resolve("pom.xml");
+    assertThat(
+      "pom.xml missing from extracted sources jar at " + pomFile
+      + " - is example/pom.xml's maven-source-plugin execution still configured with includePom=true, "
+      + "and was the sources jar actually regenerated (see forceCreation) rather than reused stale?",
+      Files.exists(pomFile),
+      is(true)
+    );
+    final Path exampleSourceFile =
+      tempDir.resolve("com/github/gv2011/dependencyanalyser/example/Example.java")
+    ;
+    assertThat(
+      "Example.java missing from extracted sources jar at " + exampleSourceFile
+      + " - the sources jar should contain .java files, not just the POM",
+      Files.exists(exampleSourceFile),
+      is(true)
+    );
+
     final ISet<ResolvedDependency> deps =
       new DependencyAnalyserImpl().resolvedDependencies(tempDir, Classpath.MAIN)
     ;
