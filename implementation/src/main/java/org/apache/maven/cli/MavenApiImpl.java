@@ -35,10 +35,10 @@ import org.codehaus.plexus.classworlds.ClassWorld;
 import org.codehaus.plexus.classworlds.realm.ClassRealm;
 import org.codehaus.plexus.classworlds.realm.NoSuchRealmException;
 
-import com.github.gv2011.dependencyanalyser.api.ResolvedDependency;
 import com.github.gv2011.dependencyanalyser.impl.Conversions;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenApi;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenApiResult;
+import com.github.gv2011.dependencyanalyser.mvnapi.MavenCoordinates;
 import com.github.gv2011.util.icol.ICollections;
 import com.github.gv2011.util.icol.Opt;
 
@@ -156,9 +156,9 @@ public class MavenApiImpl extends MavenCliBase implements MavenApi{
 
     eventSpyDispatcher.close();
 
-    final Opt<ResolvedDependency> project = xStream(result.getTopologicallySortedProjects())
+    final Opt<MavenCoordinates> project = xStream(result.getTopologicallySortedProjects())
       .tryFindFirst()
-      .map(Conversions::toResolvedDependency)
+      .map(Conversions::toMavenCoordinates)
     ;
     return beanBuilder(MavenApiResult.class)
       .set(MavenApiResult::exceptions).to(ICollections.listFrom(result.getExceptions()))

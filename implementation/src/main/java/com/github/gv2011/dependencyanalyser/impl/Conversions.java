@@ -5,15 +5,21 @@ import static com.github.gv2011.util.BeanUtils.beanBuilder;
 import org.apache.maven.project.MavenProject;
 
 import com.github.gv2011.dependencyanalyser.api.ArtifactIdentity;
-import com.github.gv2011.dependencyanalyser.api.ResolvedDependency;
+import com.github.gv2011.dependencyanalyser.mvnapi.MavenCoordinates;
 import com.github.gv2011.util.icol.Opt;
 
 public final class Conversions {
 
   private Conversions(){};
 
-  public static ResolvedDependency toResolvedDependency(final MavenProject p){
-    return null;
+  public static MavenCoordinates toMavenCoordinates(final MavenProject p){
+    return beanBuilder(MavenCoordinates.class)
+      .set(MavenCoordinates::identity).to(
+        toArtifactIdentity(p.getGroupId(), p.getArtifactId(), Opt.empty(), p.getPackaging())
+      )
+      .set(MavenCoordinates::version).to(VersionImpl.parse(p.getVersion()))
+      .build()
+    ;
   }
 
   public static ArtifactIdentity toArtifactIdentity(
