@@ -34,16 +34,14 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.StringTokenizer;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import com.google.inject.AbstractModule;
@@ -51,8 +49,6 @@ import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.UnrecognizedOptionException;
-import org.apache.maven.BuildAbort;
-import org.apache.maven.InternalErrorException;
 import org.apache.maven.Maven;
 import org.apache.maven.building.FileSource;
 import org.apache.maven.building.Problem;
@@ -75,9 +71,6 @@ import org.apache.maven.cli.transfer.QuietMavenTransferListener;
 import org.apache.maven.cli.transfer.SimplexTransferListener;
 import org.apache.maven.cli.transfer.Slf4jMavenTransferListener;
 import org.apache.maven.eventspy.internal.EventSpyDispatcher;
-import org.apache.maven.exception.DefaultExceptionHandler;
-import org.apache.maven.exception.ExceptionHandler;
-import org.apache.maven.exception.ExceptionSummary;
 import org.apache.maven.execution.DefaultMavenExecutionRequest;
 import org.apache.maven.execution.ExecutionListener;
 import org.apache.maven.execution.MavenExecutionRequest;
@@ -87,7 +80,6 @@ import org.apache.maven.execution.MavenExecutionResult;
 import org.apache.maven.execution.scope.internal.MojoExecutionScopeModule;
 import org.apache.maven.extension.internal.CoreExports;
 import org.apache.maven.extension.internal.CoreExtensionEntry;
-import org.apache.maven.lifecycle.LifecycleExecutionException;
 import org.apache.maven.model.building.ModelProcessor;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.properties.internal.EnvironmentUtils;
@@ -183,8 +175,6 @@ public class MavenApi {
 
     private CLIManager cliManager;
 
-    private static final Pattern NEXT_LINE = Pattern.compile("\r?\n");
-
     public MavenApi() {
         this(null);
     }
@@ -205,27 +195,29 @@ public class MavenApi {
 
         MessageUtils.systemInstall();
         MessageUtils.registerShutdownHook();
-        int result = cli.doMain(new CliRequest(args, classWorld));
+        MavenApiResult result = cli.doMain(new CliRequest(args, classWorld));
         MessageUtils.systemUninstall();
 
-        return result;
+        // main() is a real OS process entry point, so an int exit code is
+        // the right concept here - unlike everywhere else in this class,
+        // which now returns the real MavenApiResult instead.
+        return result.exceptions().isEmpty() ? 0 : 1;
     }
 
     // TODO need to externalize CliRequest
     public static int doMain(String[] args, ClassWorld classWorld) {
-        MavenCli cli = new MavenCli();
-        return cli.doMain(new CliRequest(args, classWorld));
+        MavenApi cli = new MavenApi();
+        MavenApiResult result = cli.doMain(new CliRequest(args, classWorld));
+        return result.exceptions().isEmpty() ? 0 : 1;
     }
 
     /**
-     * This supports painless invocation by the Verifier during embedded execution of the core ITs.
-     * See <a href="http://maven.apache.org/shared/maven-verifier/xref/org/apache/maven/it/Embedded3xLauncher.html">
-     * <code>Embedded3xLauncher</code> in <code>maven-verifier</code></a>
+     * Runs Maven against the given working directory. Unlike the original
+     * MavenCli this is based on, this never reads or writes System.out or
+     * System.err, and never converts what happened into a bare exit code -
+     * see MavenApiResult.
      */
-    public int doMain(String[] args, String workingDirectory, PrintStream stdout, PrintStream stderr) {
-        PrintStream oldout = System.out;
-        PrintStream olderr = System.err;
-
+    public MavenApiResult doMain(String[] args, String workingDirectory) {
         final Set<String> realms;
         if (classWorld != null) {
             realms = new HashSet<>();
@@ -237,13 +229,6 @@ public class MavenApi {
         }
 
         try {
-            if (stdout != null) {
-                System.setOut(stdout);
-            }
-            if (stderr != null) {
-                System.setErr(stderr);
-            }
-
             CliRequest cliRequest = new CliRequest(args, classWorld);
             cliRequest.workingDirectory = workingDirectory;
 
@@ -261,13 +246,11 @@ public class MavenApi {
                     }
                 }
             }
-            System.setOut(oldout);
-            System.setErr(olderr);
         }
     }
 
     // TODO need to externalize CliRequest
-    public int doMain(CliRequest cliRequest) {
+    public MavenApiResult doMain(CliRequest cliRequest) {
         PlexusContainer localContainer = null;
         try {
             initialize(cliRequest);
@@ -283,19 +266,17 @@ public class MavenApi {
             populateRequest(cliRequest);
             encryption(cliRequest);
             return execute(cliRequest);
-        } catch (ExitException e) {
-            return e.exitCode;
-        } catch (UnrecognizedOptionException e) {
-            // pure user error, suppress stack trace
-            return 1;
-        } catch (BuildAbort e) {
-            CLIReportingUtils.showError(slf4jLogger, "ABORTED", e, cliRequest.showErrors);
-
-            return 2;
         } catch (Exception e) {
-            CLIReportingUtils.showError(slf4jLogger, "Error executing Maven.", e, cliRequest.showErrors);
-
-            return 1;
+            // No console logging, no exit-code translation: the caller gets
+            // the real exception object (ExitException, BuildAbort,
+            // UnrecognizedOptionException or anything else) and decides what
+            // to do with it. Scope note: this only stops the conversion at
+            // this boundary - the ~9 internal `throw new ExitException(...)`
+            // sites deeper in this file (argument parsing, --version,
+            // --encrypt-password) are untouched, since they are dead code
+            // for the fixed, well-formed arguments this project always
+            // passes.
+            return new MavenApiResult(List.of(e), Optional.empty());
         } finally {
             if (localContainer != null) {
                 localContainer.dispose();
@@ -900,7 +881,15 @@ public class MavenApi {
         }
     }
 
-    private int execute(CliRequest cliRequest) throws MavenExecutionRequestPopulationException {
+    /**
+     * Scope note: the removed logic (DefaultExceptionHandler summaries,
+     * "re-run with -e/-X", "resume with -rf ..." messaging, the
+     * REACTOR_FAIL_NEVER special case that turned real exceptions into a
+     * 0 exit code) was all console presentation for a human reading
+     * terminal output. None of it belongs in an API - the caller now gets
+     * the real exceptions and decides what, if anything, to do with them.
+     */
+    private MavenApiResult execute(CliRequest cliRequest) throws MavenExecutionRequestPopulationException {
         MavenExecutionRequest request = executionRequestPopulator.populateDefaults(cliRequest.request);
 
         eventSpyDispatcher.onEvent(request);
@@ -911,154 +900,12 @@ public class MavenApi {
 
         eventSpyDispatcher.close();
 
-        if (result.hasExceptions()) {
-            ExceptionHandler handler = new DefaultExceptionHandler();
+        final Optional<MavenApiResult.ProjectCoordinates> project = result.getTopologicallySortedProjects().stream()
+                .findFirst()
+                .map(p -> new MavenApiResult.ProjectCoordinates(p.getGroupId(), p.getArtifactId(), p.getVersion()));
 
-            Map<String, String> references = new LinkedHashMap<>();
-
-            MavenProject project = null;
-
-            for (Throwable exception : result.getExceptions()) {
-                ExceptionSummary summary = handler.handleException(exception);
-
-                logSummary(summary, references, "", cliRequest.showErrors);
-
-                if (project == null && exception instanceof LifecycleExecutionException) {
-                    project = ((LifecycleExecutionException) exception).getProject();
-                }
-            }
-
-            slf4jLogger.error("");
-
-            if (!cliRequest.showErrors) {
-                slf4jLogger.error(
-                        "To see the full stack trace of the errors, re-run Maven with the {} switch.",
-                        buffer().strong("-e"));
-            }
-            if (!slf4jLogger.isDebugEnabled()) {
-                slf4jLogger.error(
-                        "Re-run Maven using the {} switch to enable full debug logging.", buffer().strong("-X"));
-            }
-
-            if (!references.isEmpty()) {
-                slf4jLogger.error("");
-                slf4jLogger.error("For more information about the errors and possible solutions"
-                        + ", please read the following articles:");
-
-                for (Map.Entry<String, String> entry : references.entrySet()) {
-                    slf4jLogger.error("{} {}", buffer().strong(entry.getValue()), entry.getKey());
-                }
-            }
-
-            if (project != null
-                    && !project.equals(result.getTopologicallySortedProjects().get(0))) {
-                slf4jLogger.error("");
-                slf4jLogger.error("After correcting the problems, you can resume the build with the command");
-                slf4jLogger.error(buffer().a("  ")
-                        .strong("mvn <args> -rf " + getResumeFrom(result.getTopologicallySortedProjects(), project))
-                        .toString());
-            }
-
-            if (MavenExecutionRequest.REACTOR_FAIL_NEVER.equals(cliRequest.request.getReactorFailureBehavior())) {
-                slf4jLogger.info("Build failures were ignored.");
-
-                return 0;
-            } else {
-                return 1;
-            }
-        } else {
-            return 0;
-        }
+        return new MavenApiResult(new ArrayList<>(result.getExceptions()), project);
     }
-
-    /**
-     * A helper method to determine the value to resume the build with {@code -rf} taking into account the
-     * edge case where multiple modules in the reactor have the same artifactId.
-     * <p>
-     * {@code -rf :artifactId} will pick up the first module which matches, but when multiple modules in the
-     * reactor have the same artifactId, effective failed module might be later in build reactor.
-     * This means that developer will either have to type groupId or wait for build execution of all modules
-     * which were fine, but they are still before one which reported errors.
-     * <p>Then the returned value is {@code groupId:artifactId} when there is a name clash and
-     * {@code :artifactId} if there is no conflict.
-     *
-     * @param mavenProjects Maven projects which are part of build execution.
-     * @param failedProject Project which has failed.
-     * @return Value for -rf flag to resume build exactly from place where it failed ({@code :artifactId} in
-     *    general and {@code groupId:artifactId} when there is a name clash).
-     */
-    private String getResumeFrom(List<MavenProject> mavenProjects, MavenProject failedProject) {
-        for (MavenProject buildProject : mavenProjects) {
-            if (failedProject.getArtifactId().equals(buildProject.getArtifactId())
-                    && !failedProject.equals(buildProject)) {
-                return failedProject.getGroupId() + ":" + failedProject.getArtifactId();
-            }
-        }
-        return ":" + failedProject.getArtifactId();
-    }
-
-    private void logSummary(
-            ExceptionSummary summary, Map<String, String> references, String indent, boolean showErrors) {
-        String referenceKey = "";
-
-        if (StringUtils.isNotEmpty(summary.getReference())) {
-            referenceKey = references.get(summary.getReference());
-            if (referenceKey == null) {
-                referenceKey = "[Help " + (references.size() + 1) + "]";
-                references.put(summary.getReference(), referenceKey);
-            }
-        }
-
-        String msg = summary.getMessage();
-
-        if (StringUtils.isNotEmpty(referenceKey)) {
-            if (msg.indexOf('\n') < 0) {
-                msg += " -> " + buffer().strong(referenceKey);
-            } else {
-                msg += "\n-> " + buffer().strong(referenceKey);
-            }
-        }
-
-        String[] lines = NEXT_LINE.split(msg);
-        String currentColor = "";
-
-        for (int i = 0; i < lines.length; i++) {
-            // add eventual current color inherited from previous line
-            String line = currentColor + lines[i];
-
-            // look for last ANSI escape sequence to check if nextColor
-            Matcher matcher = LAST_ANSI_SEQUENCE.matcher(line);
-            String nextColor = "";
-            if (matcher.find()) {
-                nextColor = matcher.group(1);
-                if (ANSI_RESET.equals(nextColor)) {
-                    // last ANSI escape code is reset: no next color
-                    nextColor = "";
-                }
-            }
-
-            // effective line, with indent and reset if end is colored
-            line = indent + line + ("".equals(nextColor) ? "" : ANSI_RESET);
-
-            if ((i == lines.length - 1) && (showErrors || (summary.getException() instanceof InternalErrorException))) {
-                slf4jLogger.error(line, summary.getException());
-            } else {
-                slf4jLogger.error(line);
-            }
-
-            currentColor = nextColor;
-        }
-
-        indent += "  ";
-
-        for (ExceptionSummary child : summary.getChildren()) {
-            logSummary(child, references, indent, showErrors);
-        }
-    }
-
-    private static final Pattern LAST_ANSI_SEQUENCE = Pattern.compile("(\u001B\\[[;\\d]*[ -/]*[@-~])[^\u001B]*$");
-
-    private static final String ANSI_RESET = "\u001B\u005Bm";
 
     private void configure(CliRequest cliRequest) throws Exception {
         //
@@ -1397,12 +1244,12 @@ public class MavenApi {
             request.setMakeBehavior(MavenExecutionRequest.REACTOR_MAKE_BOTH);
         }
 
-        String localRepoProperty = request.getUserProperties().getProperty(MavenCli.LOCAL_REPO_PROPERTY);
+        String localRepoProperty = request.getUserProperties().getProperty(LOCAL_REPO_PROPERTY);
 
         // TODO Investigate why this can also be a Java system property and not just a Maven user property like
         // other properties
         if (localRepoProperty == null) {
-            localRepoProperty = request.getSystemProperties().getProperty(MavenCli.LOCAL_REPO_PROPERTY);
+            localRepoProperty = request.getSystemProperties().getProperty(LOCAL_REPO_PROPERTY);
         }
 
         if (localRepoProperty != null) {

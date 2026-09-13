@@ -2,9 +2,7 @@ package com.github.gv2011.dependencyanalyser.impl;
 
 import static com.github.gv2011.util.BeanUtils.beanBuilder;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -13,6 +11,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.apache.maven.cli.MavenApi;
+import org.apache.maven.cli.MavenApiResult;
 
 import com.github.gv2011.dependencyanalyser.api.ArtifactIdentity;
 import com.github.gv2011.dependencyanalyser.api.Classpath;
@@ -24,7 +23,7 @@ import com.github.gv2011.util.icol.ICollections;
 import com.github.gv2011.util.icol.ISet;
 
 /**
- * Embeds Maven via {@link MavenCli} and drives the real, unmodified
+ * Embeds Maven via {@link MavenApi} and drives the real, unmodified
  * {@code dependency:list} goal, rather than re-implementing dependency
  * resolution/scope-inclusion logic directly against lower-level Maven APIs.
  * Chosen over the alternative (resolving via {@code ProjectBuilder} plus the
@@ -75,48 +74,37 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
   }
 
   /**
-   * Not thread-safe / not reentrant: {@link MavenCli#doMain} sets the
-   * {@code maven.multiModuleProjectDirectory} system property and
-   * temporarily replaces {@code System.out}/{@code System.err} for the
-   * duration of the call (confirmed against its own source/behaviour in an
-   * earlier session; not independently re-verified here). Callers must not
-   * invoke this concurrently from multiple threads.
+   * Not thread-safe / not reentrant: sets the
+   * {@code maven.multiModuleProjectDirectory} system property for the
+   * duration of the call. Callers must not invoke this concurrently from
+   * multiple threads.
    */
   private static void runDependencyList(
     final Path projectDirectory, final String includeScope, final Path outputFile
   ) {
-    // MavenCli requires this system property to be set; normally the `mvn`
+    // MavenApi requires this system property to be set; normally the `mvn`
     // launcher script sets it, which programmatic embedding bypasses.
     System.setProperty(
       MavenApi.MULTIMODULE_PROJECT_DIRECTORY,
       projectDirectory.toAbsolutePath().toString()
     );
-    final ByteArrayOutputStream out = new ByteArrayOutputStream();
-    final ByteArrayOutputStream err = new ByteArrayOutputStream();
-    final int exitCode;
-    try(
-      PrintStream outStream = new PrintStream(out, true, StandardCharsets.UTF_8);
-      PrintStream errStream = new PrintStream(err, true, StandardCharsets.UTF_8);
-    ){
-      exitCode = new MavenApi().doMain(
-        new String[]{
-          "-N", // this project directory only, not a reactor recursion
-          "-B", // batch mode: no interactive prompts
-          "dependency:list",
-          "-DincludeScope=" + includeScope,
-          "-DoutputFile=" + outputFile.toAbsolutePath(),
-        },
-        projectDirectory.toAbsolutePath().toString(),
-        outStream,
-        errStream
+    final MavenApiResult result = new MavenApi().doMain(
+      new String[]{
+        "-N", // this project directory only, not a reactor recursion
+        "-B", // batch mode: no interactive prompts
+        "dependency:list",
+        "-DincludeScope=" + includeScope,
+        "-DoutputFile=" + outputFile.toAbsolutePath(),
+      },
+      projectDirectory.toAbsolutePath().toString()
+    );
+    if(!result.exceptions().isEmpty()) {
+      final RuntimeException toThrow = new RuntimeException(
+        "mvn dependency:list failed with " + result.exceptions().size() + " exception(s); "
+        + "project: " + result.project()
       );
-    }
-    if(exitCode!=0) {
-      throw new RuntimeException(
-        "mvn dependency:list failed with exit code " + exitCode + "."
-        + "\nstdout:\n" + out.toString(StandardCharsets.UTF_8)
-        + "\nstderr:\n" + err.toString(StandardCharsets.UTF_8)
-      );
+      result.exceptions().forEach(toThrow::addSuppressed);
+      throw toThrow;
     }
   }
 
