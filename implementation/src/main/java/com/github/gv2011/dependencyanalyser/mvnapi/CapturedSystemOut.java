@@ -9,15 +9,6 @@ import java.nio.charset.StandardCharsets;
  * try-with-resources block, restoring the original stream on close. Nothing
  * is ever written to disk, and nothing reaches the real console while this
  * is open.
- *
- * <p>Exists because some Maven goals (e.g. dependency:list) have no other
- * way to report their findings - no structured result via
- * MavenExecutionResult, just a direct write to whatever System.out
- * currently is. A temp file (dependency:list's own -DoutputFile option) is
- * the alternative; this avoids that file's cleanup burden and its brief
- * window of the data sitting on disk, at the cost of only working for
- * output actually written to System.out (not to a file the goal insists on
- * writing itself).
  */
 public final class CapturedSystemOut implements AutoCloseable {
 

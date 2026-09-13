@@ -55,10 +55,13 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
   }
 
   /**
-   * No {@code -DoutputFile} - dependency:list writes its result to
-   * System.out by default, which MavenApi captures and returns via
-   * MavenApiResult.output() (see CapturedSystemOut); nothing is written to
-   * disk.
+   * No {@code -DoutputFile}: dependency:list has no structured way to
+   * report its findings at all - nothing via MavenExecutionResult, just a
+   * direct write to whatever System.out currently is, or to a file if
+   * {@code -DoutputFile} is given. MavenApi captures the System.out case
+   * generically (see MavenApiResult.output(), CapturedSystemOut), which is
+   * used here instead of the file option specifically to avoid a temp
+   * file's cleanup burden and the window where its contents sit on disk.
    */
   private String runDependencyList(final Path projectDirectory, final String includeScope) {
     final MavenApiResult result = mavenApi.doMain(
