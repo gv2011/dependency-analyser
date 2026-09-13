@@ -82,9 +82,8 @@ public class MavenApiImpl extends MavenCliBase implements MavenApi{
   public MavenApiResult doMain(final String[] args, final Path projectDirectory) {
     final String absoluteProjectDirectory = projectDirectory.toAbsolutePath().toString();
     synchronized(DO_MAIN_LOCK) {
-      try(
-        TemporarySystemProperty ignored =
-          new TemporarySystemProperty(MULTIMODULE_PROJECT_DIRECTORY, absoluteProjectDirectory)
+      try(TemporarySystemProperty ignored =
+        new TemporarySystemProperty(MULTIMODULE_PROJECT_DIRECTORY, absoluteProjectDirectory)
       ){
         return doMainLocked(args, absoluteProjectDirectory);
       }
