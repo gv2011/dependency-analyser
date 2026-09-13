@@ -29,7 +29,7 @@ import com.github.gv2011.util.icol.ISet;
  * Chosen over the alternative (resolving via {@code ProjectBuilder} plus the
  * repository system directly, skipping goal execution) because
  * {@code dependency:list}'s {@code includeScope} handling is a real, tested,
- * documented mechanism -- reusing it avoids re-deriving which scopes belong
+ * documented mechanism - reusing it avoids re-deriving which scopes belong
  * on which classpath ourselves. This trade-off can be revisited if driving a
  * full goal execution per call turns out to be too slow or too fragile in
  * practice.
@@ -63,7 +63,7 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
    * Maps our {@link Classpath} to dependency:list's own {@code includeScope}
    * values. Per its reference documentation: "runtime" includes compile and
    * runtime scope; "test" includes compile, runtime and test scope (and
-   * handles provided/system correctly) -- this is Maven's own tested
+   * handles provided/system correctly) - this is Maven's own tested
    * scope-inclusion logic, not re-derived here.
    */
   private static String includeScope(final Classpath classpath) {
@@ -133,7 +133,7 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
    * present.
    *
    * <p>Not verified against real output (no Maven available in the
-   * environment this was written in) -- tolerant of anything that isn't a
+   * environment this was written in) - tolerant of anything that isn't a
    * 5- or 6-field coordinate line (blank lines, a possible banner line),
    * treating those as not a dependency line rather than failing.
    */
