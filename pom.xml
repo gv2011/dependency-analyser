@@ -83,13 +83,6 @@
         <artifactId>maven-compat</artifactId>
         <version>${maven.version}</version>
       </dependency>
-      <!-- Without these, an embedded build fails with
-           "NoRepositoryConnectorException: No connector factories
-           available" the first time it needs to actually download
-           anything (e.g. a plugin) from a remote repository -- confirmed
-           directly against a real stack trace. maven-core/maven-embedder
-           give you the resolver API, not a way to talk to a repository
-           over HTTP; a real Maven install bundles that separately. -->
       <dependency>
         <groupId>org.apache.maven.resolver</groupId>
         <artifactId>maven-resolver-connector-basic</artifactId>
