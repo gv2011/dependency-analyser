@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.github.gv2011</groupId>
+    <artifactId>dependency-analyser</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>dependency-analyser-example</artifactId>
+  <packaging>jar</packaging>
+
+  <name>Dependency Analyser Example</name>
+  <description>
+    Not part of the tool itself. A small, real Maven project that exists to
+    be mvn-installed into the local repository and then fetched back by
+    its own coordinates (DependencyAnalyser.getPom), so tests can run
+    resolvedDependencies against a genuine, externally-resolved pom.xml
+    rather than one hand-assembled inline. See
+    dependency-analyser-implementation's ExampleProjectIT.
+
+    Its only current dependency is slf4j-api. Extend this pom's own
+    dependencies with further, more interesting or corner-case entries
+    (exclusions, a BOM import, a scope that needs careful classpath
+    handling, etc.) as those become worth testing - that is this module's
+    whole purpose.
+  </description>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+    </dependency>
+  </dependencies>
+
+</project>
