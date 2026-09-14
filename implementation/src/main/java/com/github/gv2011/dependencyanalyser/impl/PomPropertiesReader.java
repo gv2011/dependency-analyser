@@ -11,9 +11,7 @@ import com.github.gv2011.util.icol.Opt;
 
 /**
  * Reads a Maven artifact's own pom.properties from the classpath
- * (META-INF/maven/&lt;groupId&gt;/&lt;artifactId&gt;/pom.properties) - the same
- * mechanism and location the previous version of this project used for
- * self-version-discovery.
+ * (META-INF/maven/&lt;groupId&gt;/&lt;artifactId&gt;/pom.properties).
  *
  * <p><b>Availability:</b>
  * <ul>
