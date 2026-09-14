@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.Properties;
 
 import com.github.gv2011.dependencyanalyser.api.Version;
+import com.github.gv2011.util.ann.Nullable;
 import com.github.gv2011.util.icol.Opt;
 
 /**
@@ -50,7 +51,7 @@ public final class PomPropertiesReader {
 
   public Opt<Properties> readPomProperties() {
     final String resourcePath = "/META-INF/maven/" + groupId + "/" + artifactId + "/pom.properties";
-    try(InputStream in = getClass().getResourceAsStream(resourcePath)) {
+    try(@Nullable InputStream in = getClass().getResourceAsStream(resourcePath)) {
       return in==null ? Opt.empty() : Opt.of(loadProperties(in));
     }
     catch(final IOException e) {
