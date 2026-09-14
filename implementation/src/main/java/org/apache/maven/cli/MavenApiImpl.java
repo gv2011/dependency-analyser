@@ -35,10 +35,10 @@ import org.codehaus.plexus.classworlds.ClassWorld;
 import org.codehaus.plexus.classworlds.realm.ClassRealm;
 import org.codehaus.plexus.classworlds.realm.NoSuchRealmException;
 
+import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
 import com.github.gv2011.dependencyanalyser.impl.Conversions;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenApi;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenApiResult;
-import com.github.gv2011.dependencyanalyser.mvnapi.MavenCoordinates;
 import com.github.gv2011.util.icol.ICollections;
 import com.github.gv2011.util.icol.Opt;
 

@@ -5,7 +5,7 @@ import static com.github.gv2011.util.BeanUtils.beanBuilder;
 import org.apache.maven.project.MavenProject;
 
 import com.github.gv2011.dependencyanalyser.api.ArtifactIdentity;
-import com.github.gv2011.dependencyanalyser.mvnapi.MavenCoordinates;
+import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
 import com.github.gv2011.util.icol.Opt;
 
 public final class Conversions {

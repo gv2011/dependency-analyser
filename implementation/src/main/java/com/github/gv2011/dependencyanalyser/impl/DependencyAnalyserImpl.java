@@ -12,9 +12,9 @@ import java.util.Optional;
 
 import org.apache.maven.cli.MavenApiImpl;
 
-import com.github.gv2011.dependencyanalyser.api.ArtifactIdentity;
 import com.github.gv2011.dependencyanalyser.api.Classpath;
 import com.github.gv2011.dependencyanalyser.api.DependencyAnalyser;
+import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
 import com.github.gv2011.dependencyanalyser.api.MavenScope;
 import com.github.gv2011.dependencyanalyser.api.ResolvedDependency;
 import com.github.gv2011.dependencyanalyser.api.Version;
@@ -154,15 +154,14 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
     final MavenScope scope = MavenScope.valueOf(parts[parts.length-1].toUpperCase());
     return Optional.of(
       beanBuilder(ResolvedDependency.class)
-        .set(ResolvedDependency::identity).to(
-          beanBuilder(ArtifactIdentity.class)
-          .set(ArtifactIdentity::groupId).to(groupId)
-          .set(ArtifactIdentity::artifactId).to(artifactId)
-          .set(ArtifactIdentity::classifier).to(classifier)
-          .set(ArtifactIdentity::type).to(type)
+        .set(ResolvedDependency::coordinates).to(
+          beanBuilder(MavenCoordinates.class)
+          .set(MavenCoordinates::identity).to(
+            Conversions.toArtifactIdentity(groupId, artifactId, classifier, type)
+          )
+          .set(MavenCoordinates::version).to(VersionImpl.parse(version))
           .build()
         )
-        .set(ResolvedDependency::version).to(VersionImpl.parse(version))
         .set(ResolvedDependency::scope).to(scope)
         .build()
     );

@@ -6,7 +6,7 @@ import com.github.gv2011.util.icol.Opt;
 /**
  * The identity of a Maven artifact across all its released versions — e.g.
  * "The New York Times, International Edition" as opposed to one specific
- * day's issue of it (see {@link ResolvedDependency}, which adds the
+ * day's issue of it (see {@link MavenCoordinates}, which adds the
  * version).
  *
  * <p>groupId + artifactId + classifier + type: matches Maven's own notion of

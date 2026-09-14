@@ -29,8 +29,8 @@ class DependencyAnalyserImplIT {
       new DependencyAnalyserImpl().resolvedDependencies(apiModuleDirectory, Classpath.MAIN)
     ;
     final boolean containsUtilApis = deps.stream().anyMatch(d ->
-      d.identity().groupId().equals("com.github.gv2011")
-      && d.identity().artifactId().equals("util-apis")
+      d.coordinates().identity().groupId().equals("com.github.gv2011")
+      && d.coordinates().identity().artifactId().equals("util-apis")
     );
     assertThat(containsUtilApis, is(true));
   }

@@ -20,6 +20,7 @@ package com.github.gv2011.dependencyanalyser.mvnapi;
 
 import org.apache.maven.cli.MavenApiImpl;
 
+import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
 import com.github.gv2011.util.beans.Bean;
 import com.github.gv2011.util.icol.IList;
 import com.github.gv2011.util.icol.Opt;

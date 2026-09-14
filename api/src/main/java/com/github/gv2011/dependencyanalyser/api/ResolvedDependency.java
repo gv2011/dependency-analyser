@@ -5,14 +5,10 @@ import com.github.gv2011.util.beans.Bean;
 /**
  * One artifact on a resolved classpath, after Maven's own conflict
  * resolution — corresponds to one line of {@code mvn dependency:list} output.
- * Has an {@link ArtifactIdentity} plus the version and scope it was actually
- * resolved at; it is not itself a kind of identity.
  */
 public interface ResolvedDependency extends Bean{
 
-  ArtifactIdentity identity();
-
-  Version version();
+  MavenCoordinates coordinates();
 
   /**
    * The scope this specific dependency was actually resolved at — not the
