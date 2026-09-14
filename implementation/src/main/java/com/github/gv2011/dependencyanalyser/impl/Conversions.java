@@ -22,6 +22,24 @@ public final class Conversions {
     ;
   }
 
+  /**
+   * For coordinates known directly, rather than read from a MavenProject
+   * (e.g. an artifact this reactor doesn't build itself). type is the
+   * artifact's own real packaging (e.g. "jar"), not the type of anything
+   * that might later be fetched about it.
+   */
+  public static MavenCoordinates toMavenCoordinates(
+    final String groupId, final String artifactId, final String version, final String type
+  ){
+    return beanBuilder(MavenCoordinates.class)
+      .set(MavenCoordinates::identity).to(
+        toArtifactIdentity(groupId, artifactId, Opt.empty(), type)
+      )
+      .set(MavenCoordinates::version).to(VersionImpl.parse(version))
+      .build()
+    ;
+  }
+
   public static ArtifactIdentity toArtifactIdentity(
     final String groupId, final String artifactId, final Opt<String> classifier, final String type
   ) {

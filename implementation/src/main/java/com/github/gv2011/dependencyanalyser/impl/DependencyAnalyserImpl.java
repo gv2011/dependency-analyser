@@ -172,4 +172,9 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
     return VersionImpl.parse(version);
   }
 
+  @Override
+  public String getPom(final MavenCoordinates coordinates) {
+    return PomFetcher.fetchPomContent(coordinates);
+  }
+
 }
