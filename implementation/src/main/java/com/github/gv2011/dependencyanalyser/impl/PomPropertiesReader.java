@@ -1,9 +1,10 @@
 package com.github.gv2011.dependencyanalyser.impl;
 
+import static java.util.Objects.requireNonNull;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.util.Objects;
 import java.util.Properties;
 
 import com.github.gv2011.dependencyanalyser.api.Version;
@@ -61,7 +62,7 @@ public final class PomPropertiesReader {
 
   public Opt<Version> readVersion() {
     return readPomProperties()
-      .map(p -> Objects.requireNonNull(p.getProperty(VERSION_PROPERTY)))
+      .map(p -> requireNonNull(p.getProperty(VERSION_PROPERTY)))
       .map(VersionImpl::parse)
     ;
   }
