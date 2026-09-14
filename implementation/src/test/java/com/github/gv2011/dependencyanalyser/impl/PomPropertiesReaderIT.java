@@ -12,7 +12,7 @@ import com.github.gv2011.util.icol.Opt;
 
 /**
  * Reads dependency-analyser-implementation's own, real pom.properties -
- * unlike PomPropertiesReaderTest's fixture-based cases, this depends on
+ * unlike PomPropertiesReaderTest's hand-written fake, this depends on
  * build phase (see PomPropertiesReader's own javadoc): absent before
  * packaging, present by the time an integration test runs, which is
  * exactly why this is an IT and not a plain unit test.
