@@ -130,16 +130,15 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
   /**
    * One line of {@code mvn dependency:list} output is
    * {@code groupId:artifactId:type:version:scope}, or, when a classifier is
-   * present, {@code groupId:artifactId:type:classifier:version:scope} --
+   * present, {@code groupId:artifactId:type:classifier:version:scope} -
    * matching Maven's own {@code Artifact} coordinate-string format. An
    * optional {@code  -- module <name>} suffix (JPMS automatic-module-name
    * info, seen when resolving on a JDK that reports it) is stripped first if
    * present.
    *
-   * <p>Not verified against real output (no Maven available in the
-   * environment this was written in) - tolerant of anything that isn't a
-   * 5- or 6-field coordinate line (blank lines, a possible banner line),
-   * treating those as not a dependency line rather than failing.
+   * <p>Tolerant of anything that isn't a 5- or 6-field coordinate line
+   * (blank lines, a possible banner line), treating those as not a
+   * dependency line rather than failing.
    */
   private static Optional<ResolvedDependency> parseLine(final String rawLine) {
     final String line = rawLine.split(" -- ", 2)[0].strip();

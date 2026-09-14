@@ -17,9 +17,7 @@ import com.github.gv2011.util.icol.Opt;
  * packaging, present by the time an integration test runs, which is
  * exactly why this is an IT and not a plain unit test.
  *
- * <p>Runs under {@code mvn verify} (failsafe), not {@code mvn test}. Not
- * run or verified in the environment this was written in (no Maven
- * available there).
+ * <p>Runs under {@code mvn verify} (failsafe), not {@code mvn test}.
  */
 class PomPropertiesReaderIT {
 
