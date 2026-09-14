@@ -9,7 +9,7 @@ import java.nio.file.Paths;
 import org.junit.jupiter.api.Test;
 
 import com.github.gv2011.dependencyanalyser.api.Classpath;
-import com.github.gv2011.dependencyanalyser.api.ResolvedDependency;
+import com.github.gv2011.dependencyanalyser.api.Dependency;
 import com.github.gv2011.util.icol.ISet;
 
 /**
@@ -25,7 +25,7 @@ class DependencyAnalyserImplIT {
     // asserting the full resolved set, since util-apis' own transitive
     // dependencies (if any) aren't known here.
     final Path apiModuleDirectory = Paths.get("..", "api");
-    final ISet<ResolvedDependency> deps =
+    final ISet<Dependency> deps =
       new DependencyAnalyserImpl().resolvedDependencies(apiModuleDirectory, Classpath.MAIN)
     ;
     final boolean containsUtilApis = deps.stream().anyMatch(d ->

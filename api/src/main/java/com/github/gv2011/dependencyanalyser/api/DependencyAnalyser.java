@@ -32,7 +32,7 @@ public interface DependencyAnalyser {
    * @param projectDirectory directory containing the module's {@code pom.xml}
    * @param classpath which classpath to resolve; see {@link Classpath}
    */
-  ISet<ResolvedDependency> resolvedDependencies(Path projectDirectory, Classpath classpath);
+  ISet<Dependency> resolvedDependencies(Path projectDirectory, Classpath classpath);
 
   Version parseVersion(String version);
 

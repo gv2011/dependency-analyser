@@ -13,10 +13,10 @@ import java.util.Optional;
 import org.apache.maven.cli.MavenApiImpl;
 
 import com.github.gv2011.dependencyanalyser.api.Classpath;
+import com.github.gv2011.dependencyanalyser.api.Dependency;
 import com.github.gv2011.dependencyanalyser.api.DependencyAnalyser;
 import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
 import com.github.gv2011.dependencyanalyser.api.MavenScope;
-import com.github.gv2011.dependencyanalyser.api.ResolvedDependency;
 import com.github.gv2011.dependencyanalyser.api.Version;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenApi;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenApiResult;
@@ -41,7 +41,7 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
   private final MavenApi mavenApi = MavenApi.createApi();
 
   @Override
-  public ISet<ResolvedDependency> resolvedDependencies(final Path projectDirectory, final Classpath classpath) {
+  public ISet<Dependency> resolvedDependencies(final Path projectDirectory, final Classpath classpath) {
     final Path outputFile;
     try {
       outputFile = Files.createTempFile("dependency-list-", ".txt");
@@ -112,7 +112,7 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
     }
   }
 
-  private static ISet<ResolvedDependency> parseOutputFile(final Path outputFile) {
+  private static ISet<Dependency> parseOutputFile(final Path outputFile) {
     final List<String> lines;
     try {
       lines = Files.readAllLines(outputFile, StandardCharsets.UTF_8);
@@ -120,7 +120,7 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
     catch(final IOException e) {
       throw new UncheckedIOException(e);
     }
-    final var result = ICollections.<ResolvedDependency>setBuilder();
+    final var result = ICollections.<Dependency>setBuilder();
     for(final String rawLine: lines) {
       parseLine(rawLine).ifPresent(result::add);
     }
@@ -140,7 +140,7 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
    * (blank lines, a possible banner line), treating those as not a
    * dependency line rather than failing.
    */
-  private static Optional<ResolvedDependency> parseLine(final String rawLine) {
+  private static Optional<Dependency> parseLine(final String rawLine) {
     final String line = rawLine.split(" -- ", 2)[0].strip();
     final String[] parts = line.split(":");
     if(parts.length!=5 && parts.length!=6) {
@@ -153,8 +153,8 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
     final String version = parts[parts.length-2];
     final MavenScope scope = MavenScope.valueOf(parts[parts.length-1].toUpperCase());
     return Optional.of(
-      beanBuilder(ResolvedDependency.class)
-        .set(ResolvedDependency::coordinates).to(
+      beanBuilder(Dependency.class)
+        .set(Dependency::coordinates).to(
           beanBuilder(MavenCoordinates.class)
           .set(MavenCoordinates::identity).to(
             Conversions.toArtifactIdentity(groupId, artifactId, classifier, type)
@@ -162,7 +162,7 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
           .set(MavenCoordinates::version).to(VersionImpl.parse(version))
           .build()
         )
-        .set(ResolvedDependency::scope).to(scope)
+        .set(Dependency::scope).to(scope)
         .build()
     );
   }
