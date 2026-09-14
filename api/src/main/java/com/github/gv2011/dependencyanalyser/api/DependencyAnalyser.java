@@ -36,4 +36,6 @@ public interface DependencyAnalyser {
 
   Version parseVersion(String version);
 
+  String getPom(MavenCoordinates coordinates);
+
 }
