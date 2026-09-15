@@ -41,7 +41,7 @@ public final class PomChainWalker {
   public Map<ArtifactIdentity, DeclarationSource> declarationsReachableFrom(final Path leafDirectory) {
     final Map<ArtifactIdentity, DeclarationSource> result = new HashMap<>();
     final PomDependencyDeclarations leaf = analyser.pomDependencyDeclarations(leafDirectory);
-    walk(leaf, ICollections.<PomStep>listBuilder().build(), true, result);
+    walk(leaf, ICollections.<PomStep>listBuilder().build(), result);
     return result;
   }
 
@@ -58,9 +58,14 @@ public final class PomChainWalker {
   private void walk(
     final PomDependencyDeclarations pom,
     final IList<PomStep> path,
-    final boolean own,
     final Map<ArtifactIdentity, DeclarationSource> result
   ) {
+    // An empty path means pom is the leaf itself, which counts as "one's
+    // own" unconditionally - not via isOwn(pom), which would wrongly
+    // depend on the leaf's own groupId actually being stated (often
+    // isn't; it's commonly inherited from the parent, same as example's
+    // real pom.xml).
+    final boolean own = path.isEmpty() || isOwn(pom);
     for(final DependencyDeclaration declaration: pom.dependencyDeclarations()) {
       // TODO "first declaration found wins" is only a crude approximation
       // of Maven's real "nearest wins" precedence. Proper reporting
@@ -74,12 +79,12 @@ public final class PomChainWalker {
       if(declaration.isBomImport()) {
         final MavenCoordinates bomCoordinates = declaration.coordinates();
         final PomDependencyDeclarations bom = analyser.pomDependencyDeclarations(bomCoordinates);
-        walk(bom, extend(path, PomRelation.BOM_IMPORT, bomCoordinates), isOwn(bom), result);
+        walk(bom, extend(path, PomRelation.BOM_IMPORT, bomCoordinates), result);
       }
     }
     pom.parent().ifPresentDo(parentCoordinates -> {
       final PomDependencyDeclarations parentPom = analyser.pomDependencyDeclarations(parentCoordinates);
-      walk(parentPom, extend(path, PomRelation.PARENT, parentCoordinates), isOwn(parentPom), result);
+      walk(parentPom, extend(path, PomRelation.PARENT, parentCoordinates), result);
     });
   }
 
