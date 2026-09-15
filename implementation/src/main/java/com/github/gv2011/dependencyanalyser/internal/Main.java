@@ -5,6 +5,7 @@ import java.nio.file.Paths;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import com.github.gv2011.dependencyanalyser.api.ArtifactIdentity;
 import com.github.gv2011.dependencyanalyser.api.Classpath;
 import com.github.gv2011.dependencyanalyser.api.Dependency;
 import com.github.gv2011.dependencyanalyser.api.DependencyAnalyser;
@@ -47,13 +48,13 @@ public final class Main {
     final DependencyAnalyser analyser = DependencyAnalyser.instance();
 
     final ISet<Dependency> resolved = analyser.getDependencies(leafDirectory, Classpath.MAIN);
-    final Map<String, DeclarationSource> declared = new LinkedHashMap<>();
+    final Map<ArtifactIdentity, DeclarationSource> declared = new LinkedHashMap<>();
     walk(analyser, analyser.pomDependencyDeclarations(leafDirectory), "<leaf>", true, declared);
 
     for(final Dependency dependency: resolved) {
       final String groupId = dependency.coordinates().identity().groupId();
       final String artifactId = dependency.coordinates().identity().artifactId();
-      final DeclarationSource source = declared.get(key(groupId, artifactId));
+      final DeclarationSource source = declared.get(dependency.coordinates().identity());
       final String status =
         source==null ? "NOT DECLARED (pure transitive resolution)"
         : source.own() ? "declared by OWN pom: " + source.declaringPom()
@@ -77,18 +78,16 @@ public final class Main {
     final PomDependencyDeclarations pom,
     final String label,
     final boolean own,
-    final Map<String, DeclarationSource> result
+    final Map<ArtifactIdentity, DeclarationSource> result
   ) {
     for(final DependencyDeclaration declaration: pom.dependencyDeclarations()) {
-      final String key = key(
-        declaration.coordinates().identity().groupId(), declaration.coordinates().identity().artifactId()
-      );
       // First declaration found wins: this pom's own management/dependencies
       // are walked before its parent, and a parent before its own BOM
       // imports are followed - close to Maven's real "nearest wins"
       // precedence, though not a faithful reproduction of it.
       result.putIfAbsent(
-        key, new DeclarationSource(label + " (" + declaration.coordinates().version() + ")", own)
+        declaration.coordinates().identity(),
+        new DeclarationSource(label + " (" + declaration.coordinates().version() + ")", own)
       );
       if(declaration.isBomImport()) {
         final MavenCoordinates bomCoordinates = declaration.coordinates();
@@ -109,10 +108,6 @@ public final class Main {
   private static String format(final MavenCoordinates coordinates) {
     return coordinates.identity().groupId() + ":" + coordinates.identity().artifactId()
       + ":" + coordinates.version();
-  }
-
-  private static String key(final String groupId, final String artifactId) {
-    return groupId + ":" + artifactId;
   }
 
 }
