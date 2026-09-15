@@ -78,7 +78,7 @@ class PomDependencyDeclarationsParserTest {
   ) {
     return declarations.stream()
       .filter(d -> d.coordinates().identity().artifactId().equals(artifactId))
-      .findFirst()
+      .tryFindFirst()
       .orElseThrow(() -> new AssertionError("No declaration found for artifactId " + artifactId))
     ;
   }
