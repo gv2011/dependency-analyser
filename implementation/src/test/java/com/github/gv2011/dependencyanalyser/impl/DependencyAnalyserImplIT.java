@@ -22,12 +22,12 @@ import com.github.gv2011.dependencyanalyser.api.Version;
 import com.github.gv2011.util.icol.ISet;
 
 /**
- * Exercises getPom and resolvedDependencies together, against a genuine,
+ * Exercises getPom and getDependencies together, against a genuine,
  * independently built project: fetches dependency-analyser-example's own
  * pom.xml back by coordinates (getPom - resolved purely from the local
  * repository, no dependence on this reactor's own source-directory
  * layout), writes it into a fresh directory under target/, then runs
- * resolvedDependencies(...) against that directory the same as it would
+ * getDependencies(...) against that directory the same as it would
  * run against any real project.
  *
  * <p>dependency-analyser-example exists specifically to be this fixture:
@@ -36,7 +36,7 @@ import com.github.gv2011.util.icol.ISet;
  * become worth testing - unlike a production module's pom (e.g. api's),
  * whose own dependency set can change for reasons unrelated to what this
  * test is meant to check. This class's job is exercising the getPom +
- * resolvedDependencies combination against whatever example's pom
+ * getDependencies combination against whatever example's pom
  * currently declares, not asserting one fixed dependency set forever.
  *
  * <p><b>Requires dependency-analyser-example already installed to the
@@ -63,7 +63,7 @@ class DependencyAnalyserImplIT {
   private static final String EXAMPLE_ARTIFACT_ID = "dependency-analyser-example";
 
   @Test
-  void resolvedDependenciesOfFetchedExamplePom() throws IOException {
+  void getDependenciesOfFetchedExamplePom() throws IOException {
     final MavenCoordinates exampleCoordinates = Conversions.toMavenCoordinates(
       GROUP_ID, EXAMPLE_ARTIFACT_ID, reactorVersion().toString(), "jar"
     );
