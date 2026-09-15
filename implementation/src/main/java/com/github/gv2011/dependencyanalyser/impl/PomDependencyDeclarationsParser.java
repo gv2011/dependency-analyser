@@ -36,7 +36,11 @@ public final class PomDependencyDeclarationsParser {
   public static PomDependencyDeclarations parse(final String pomContent) {
     final Model model = readModel(pomContent);
     return beanBuilder(PomDependencyDeclarations.class)
-      .set(PomDependencyDeclarations::coordinates).to(ownCoordinates(model))
+      .set(PomDependencyDeclarations::groupId).to(Opt.ofNullable(model.getGroupId()))
+      .set(PomDependencyDeclarations::artifactId).to(model.getArtifactId())
+      .set(PomDependencyDeclarations::version).to(
+        Opt.ofNullable(model.getVersion()).map(VersionImpl::parse)
+      )
       .set(PomDependencyDeclarations::parent).to(parent(model))
       .set(PomDependencyDeclarations::dependencyDeclarations).to(dependencyDeclarations(model))
       .build()
@@ -50,25 +54,6 @@ public final class PomDependencyDeclarationsParser {
     catch(final IOException | XmlPullParserException e) {
       throw new IllegalArgumentException("Could not parse pom content as a Maven model", e);
     }
-  }
-
-  /**
-   * artifactId is always stated directly (Maven does not allow inheriting
-   * it), but groupId and version can each be inherited from the parent
-   * instead of appearing in this pom's own text - a raw read cannot
-   * resolve that without walking the parent chain, which is out of scope
-   * for this class (see PomDependencyDeclarations's own javadoc).
-   */
-  private static MavenCoordinates ownCoordinates(final Model model) {
-    if(model.getGroupId()==null || model.getVersion()==null) {
-      return notYetImplemented(
-        "groupId and/or version inherited from the parent, not stated in "
-        + model.getArtifactId() + "'s own pom.xml text"
-      );
-    }
-    return Conversions.toMavenCoordinates(
-      model.getGroupId(), model.getArtifactId(), model.getVersion(), packaging(model)
-    );
   }
 
   private static Opt<MavenCoordinates> parent(final Model model) {
@@ -123,18 +108,13 @@ public final class PomDependencyDeclarationsParser {
   }
 
   /**
-   * Model.getType() and Model.getPackaging() both carry a hardcoded
-   * "jar" default in the generated model class itself (from maven.mdo),
-   * present on a bare read - not something that depends on model
-   * building/merging. Applied defensively here regardless, rather than
-   * assumed.
+   * Dependency.getType() carries a hardcoded "jar" default in the
+   * generated model class itself (from maven.mdo), present on a bare
+   * read - not something that depends on model building/merging.
+   * Applied defensively here regardless, rather than assumed.
    */
   private static String type(final Dependency d) {
     return Opt.ofNullable(d.getType()).orElse("jar");
-  }
-
-  private static String packaging(final Model model) {
-    return Opt.ofNullable(model.getPackaging()).orElse("jar");
   }
 
 }

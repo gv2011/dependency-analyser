@@ -21,11 +21,24 @@ import com.github.gv2011.util.icol.Opt;
 public interface PomDependencyDeclarations extends Bean {
 
   /**
-   * This pom's own coordinates. Not necessarily fully stated in this
-   * pom's own text - groupId and version may both be inherited from the
-   * parent instead (artifactId cannot be).
+   * This pom's own groupId, if stated directly in its text - absent when
+   * inherited from the parent instead (a common pattern, not a rare one:
+   * every module in this very reactor omits its own groupId).
    */
-  MavenCoordinates coordinates();
+  Opt<String> groupId();
+
+  /**
+   * Always stated directly - Maven does not allow inheriting artifactId
+   * from a parent.
+   */
+  String artifactId();
+
+  /**
+   * This pom's own version, if stated directly in its text - absent when
+   * inherited from the parent instead (a common pattern, not a rare one:
+   * every module in this very reactor omits its own version).
+   */
+  Opt<Version> version();
 
   /**
    * This pom's own {@code <parent>} coordinates, if it has one.

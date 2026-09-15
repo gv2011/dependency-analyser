@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import com.github.gv2011.dependencyanalyser.api.DependencyDeclaration;
 import com.github.gv2011.dependencyanalyser.api.PomDependencyDeclarations;
 import com.github.gv2011.util.icol.ISet;
+import com.github.gv2011.util.icol.Opt;
 
 /**
  * Parses a hand-written pom.xml, committed directly at
@@ -24,10 +25,13 @@ import com.github.gv2011.util.icol.ISet;
  * {@code <dependencyManagement>} entry, and a BOM import
  * ({@code <scope>import</scope><type>pom</type>}).
  *
- * <p>Deliberately does NOT cover the "not yet implemented" edge cases
- * (own or parent version inherited/omitted) - see
+ * <p>Deliberately does NOT cover the "not yet implemented" edge case
+ * (parent version inherited/omitted, MNG-624's relativePath inference) -
+ * that one is genuinely rare in practice, unlike this pom's own groupId
+ * and version being inherited, which every module in this fixture's real
+ * counterpart module (dependency-analyser-example) actually does - see
  * PomDependencyDeclarationsParserIT for that, against example's real,
- * unmodified pom.xml, which happens to hit exactly one of them.
+ * unmodified pom.xml.
  */
 class PomDependencyDeclarationsParserTest {
 
@@ -37,11 +41,10 @@ class PomDependencyDeclarationsParserTest {
       PomDependencyDeclarationsParser.parse(readResource("/sample-pom.xml"))
     ;
 
-    assertThat(declarations.coordinates().identity().groupId(), is("com.example"));
-    assertThat(
-      declarations.coordinates().identity().artifactId(), is("sample-pom-declarations-fixture")
-    );
-    assertThat(declarations.coordinates().version().toString(), is("1.0.0-test"));
+    assertThat(declarations.groupId(), is(Opt.of("com.example")));
+    assertThat(declarations.artifactId(), is("sample-pom-declarations-fixture"));
+    assertThat(declarations.version().isPresent(), is(true));
+    assertThat(declarations.version().get().toString(), is("1.0.0-test"));
 
     assertThat("expected a <parent>", declarations.parent().isPresent(), is(true));
     assertThat(declarations.parent().get().identity().artifactId(), is("sample-parent"));
