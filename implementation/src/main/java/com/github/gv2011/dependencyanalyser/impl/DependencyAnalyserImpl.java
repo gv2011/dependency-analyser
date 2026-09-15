@@ -17,6 +17,7 @@ import com.github.gv2011.dependencyanalyser.api.Dependency;
 import com.github.gv2011.dependencyanalyser.api.DependencyAnalyser;
 import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
 import com.github.gv2011.dependencyanalyser.api.MavenScope;
+import com.github.gv2011.dependencyanalyser.api.PomDeclarations;
 import com.github.gv2011.dependencyanalyser.api.Version;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenApi;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenApiResult;
@@ -165,6 +166,16 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
         .set(Dependency::scope).to(scope)
         .build()
     );
+  }
+
+  @Override
+  public PomDeclarations pomDeclarations(final Path projectDirectory) {
+    throw new UnsupportedOperationException("not yet implemented");
+  }
+
+  @Override
+  public PomDeclarations pomDeclarations(final MavenCoordinates coordinates) {
+    throw new UnsupportedOperationException("not yet implemented");
   }
 
   @Override

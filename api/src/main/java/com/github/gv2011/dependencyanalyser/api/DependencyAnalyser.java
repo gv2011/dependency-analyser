@@ -45,6 +45,24 @@ public interface DependencyAnalyser {
    */
   ISet<Dependency> getDependencies(Path projectDirectory, Classpath classpath);
 
+  /**
+   * What the given project's own pom.xml declares, read directly from
+   * disk - unmerged with anything from a parent or an imported BOM. See
+   * {@link PomDeclarations}.
+   *
+   * @param projectDirectory directory containing the module's {@code pom.xml}
+   */
+  PomDeclarations pomDeclarations(Path projectDirectory);
+
+  /**
+   * What the pom.xml identified by these coordinates declares - fetched
+   * via {@link #getPom(MavenCoordinates)}, then read the same way as the
+   * {@link #pomDeclarations(Path)} overload. Typically used for a parent
+   * or an imported BOM, not the leaf project itself, which usually has a
+   * {@code projectDirectory} to read directly instead.
+   */
+  PomDeclarations pomDeclarations(MavenCoordinates coordinates);
+
   Version parseVersion(String version);
 
   String getPom(MavenCoordinates coordinates);
