@@ -1,7 +1,6 @@
 package com.github.gv2011.dependencyanalyser.impl;
 
 import static com.github.gv2011.util.BeanUtils.beanBuilder;
-import static com.github.gv2011.util.ex.Exceptions.notYetImplemented;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -171,12 +170,19 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
 
   @Override
   public PomDependencyDeclarations pomDependencyDeclarations(final Path projectDirectory) {
-    return notYetImplemented();
+    final String pomContent;
+    try {
+      pomContent = Files.readString(projectDirectory.resolve("pom.xml"), StandardCharsets.UTF_8);
+    }
+    catch(final IOException e) {
+      throw new UncheckedIOException(e);
+    }
+    return PomDependencyDeclarationsParser.parse(pomContent);
   }
 
   @Override
   public PomDependencyDeclarations pomDependencyDeclarations(final MavenCoordinates coordinates) {
-    return notYetImplemented();
+    return PomDependencyDeclarationsParser.parse(getPom(coordinates));
   }
 
   @Override

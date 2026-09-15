@@ -3,11 +3,6 @@ package com.github.gv2011.dependencyanalyser.impl;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
-
 import org.junit.jupiter.api.Test;
 
 import com.github.gv2011.dependencyanalyser.api.DependencyDeclaration;
@@ -38,7 +33,7 @@ class PomDependencyDeclarationsParserTest {
   @Test
   void parsesSamplePom() {
     final PomDependencyDeclarations declarations =
-      PomDependencyDeclarationsParser.parse(readResource("/sample-pom.xml"))
+      PomDependencyDeclarationsParser.parse(TestResources.read("/sample-pom.xml"))
     ;
 
     assertThat(declarations.groupId(), is(Opt.of("com.example")));
@@ -81,18 +76,6 @@ class PomDependencyDeclarationsParserTest {
       .tryFindFirst()
       .orElseThrow(() -> new AssertionError("No declaration found for artifactId " + artifactId))
     ;
-  }
-
-  private static String readResource(final String path) {
-    try(InputStream in = PomDependencyDeclarationsParserTest.class.getResourceAsStream(path)) {
-      if(in==null) {
-        throw new IllegalStateException("Test resource not found: " + path);
-      }
-      return new String(in.readAllBytes(), StandardCharsets.UTF_8);
-    }
-    catch(final IOException e) {
-      throw new UncheckedIOException(e);
-    }
   }
 
 }
