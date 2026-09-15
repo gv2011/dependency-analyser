@@ -20,7 +20,7 @@
     its own coordinates (DependencyAnalyser.getPom), so tests can run
     resolvedDependencies against a genuine, externally-resolved pom.xml
     rather than one hand-assembled inline. See
-    dependency-analyser-implementation's ExampleProjectIT.
+    dependency-analyser-implementation's DependencyAnalyserImplIT.
 
     Its only current dependency is slf4j-api. Extend this pom's own
     dependencies with further, more interesting or corner-case entries

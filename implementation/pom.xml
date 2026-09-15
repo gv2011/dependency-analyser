@@ -77,7 +77,7 @@
     </dependency>
 
     <!-- Forces reactor build order (example before implementation) for
-         ExampleProjectIT, which needs example's own pom.xml already in
+         DependencyAnalyserImplIT, which needs example's own pom.xml already in
          the local repository - see that test's own javadoc for what this
          does and does not guarantee by itself. -->
     <dependency>
