@@ -10,13 +10,14 @@ import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
 /**
  * Uses org.slf4j:slf4j-api as the example artifact - a real, well-known
  * dependency this reactor's own build already resolves into the local
- * repo (root pom.xml pins its version), so this doesn't strictly need
- * network access to pass, though it still shells out to embedded Maven
- * the same as PomFetcher always does.
- *
- * <p>Runs under {@code mvn verify} (failsafe), not {@code mvn test}.
+ * repo (root pom.xml pins its version). Runs under {@code mvn test}
+ * (surefire), not {@code mvn verify}: nothing here depends on this
+ * module's own package output, and the goal it drives
+ * (maven-dependency-plugin's dependency:copy) needs no more environment
+ * setup than any other Maven goal - resolved once on a connected run,
+ * then available offline on every later run the same way.
  */
-class PomFetcherIT {
+class PomFetcherTest {
 
   @Test
   void fetchesSlf4jApiPom() {

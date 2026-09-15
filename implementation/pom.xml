@@ -76,6 +76,17 @@
       <scope>runtime</scope>
     </dependency>
 
+    <!-- Forces reactor build order (example before implementation) for
+         DependencyAnalyserImplIT, which needs example's own pom.xml already in
+         the local repository - see that test's own javadoc for what this
+         does and does not guarantee by itself. -->
+    <dependency>
+      <groupId>com.github.gv2011</groupId>
+      <artifactId>dependency-analyser-example</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
