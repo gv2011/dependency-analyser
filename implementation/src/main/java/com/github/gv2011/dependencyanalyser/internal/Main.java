@@ -2,7 +2,7 @@ package com.github.gv2011.dependencyanalyser.internal;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.Map;
 
 import com.github.gv2011.dependencyanalyser.api.ArtifactIdentity;
@@ -48,7 +48,7 @@ public final class Main {
     final DependencyAnalyser analyser = DependencyAnalyser.instance();
 
     final ISet<Dependency> resolved = analyser.getDependencies(leafDirectory, Classpath.MAIN);
-    final Map<ArtifactIdentity, DeclarationSource> declared = new LinkedHashMap<>();
+    final Map<ArtifactIdentity, DeclarationSource> declared = new HashMap<>();
     walk(analyser, analyser.pomDependencyDeclarations(leafDirectory), "<leaf>", true, declared);
 
     for(final Dependency dependency: resolved) {
