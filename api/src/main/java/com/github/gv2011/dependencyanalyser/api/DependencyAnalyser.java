@@ -25,14 +25,25 @@ public interface DependencyAnalyser {
   }
 
   /**
-   * The resolved dependencies of one Maven module, after Maven's own
-   * conflict resolution — i.e. what {@code mvn dependency:list} reports, not
-   * the module's own directly-declared {@code <dependencies>}.
+   * The dependencies of one Maven module — the actual artifacts it needs
+   * — as opposed to the dependency declarations (or specifications) in
+   * the module's own {@code pom.xml}, which only specify them.
+   *
+   * <p>A declaration and a dependency are not the same thing, and don't
+   * correspond one-to-one. A single declaration can pull in further
+   * dependencies transitively (through the declared artifact's own
+   * declarations, and so on) that this module never declares itself.
+   * Conversely, when two declarations - direct or transitive - specify
+   * different versions of the same artifact, only one version is
+   * actually needed, so only that one is a dependency; and a declared
+   * exclusion can mean an artifact that would otherwise be needed isn't
+   * one at all. What this method returns is that actual, final set: the
+   * same set a real build of the project would put on its classpath.
    *
    * @param projectDirectory directory containing the module's {@code pom.xml}
    * @param classpath which classpath to resolve; see {@link Classpath}
    */
-  ISet<Dependency> resolvedDependencies(Path projectDirectory, Classpath classpath);
+  ISet<Dependency> getDependencies(Path projectDirectory, Classpath classpath);
 
   Version parseVersion(String version);
 

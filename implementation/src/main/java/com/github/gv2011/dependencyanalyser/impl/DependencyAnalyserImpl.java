@@ -41,7 +41,7 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
   private final MavenApi mavenApi = MavenApi.createApi();
 
   @Override
-  public ISet<Dependency> resolvedDependencies(final Path projectDirectory, final Classpath classpath) {
+  public ISet<Dependency> getDependencies(final Path projectDirectory, final Classpath classpath) {
     final Path outputFile;
     try {
       outputFile = Files.createTempFile("dependency-list-", ".txt");

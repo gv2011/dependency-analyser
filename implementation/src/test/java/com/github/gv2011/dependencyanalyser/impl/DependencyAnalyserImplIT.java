@@ -74,7 +74,7 @@ class DependencyAnalyserImplIT {
     Files.writeString(projectDirectory.resolve("pom.xml"), pomContent, StandardCharsets.UTF_8);
 
     final ISet<Dependency> deps =
-      new DependencyAnalyserImpl().resolvedDependencies(projectDirectory, Classpath.MAIN)
+      new DependencyAnalyserImpl().getDependencies(projectDirectory, Classpath.MAIN)
     ;
     final boolean containsSlf4jApi = deps.stream().anyMatch(d ->
       d.coordinates().identity().groupId().equals("org.slf4j")
