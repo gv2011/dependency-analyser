@@ -17,8 +17,6 @@ import org.junit.jupiter.api.Test;
 
 import com.github.gv2011.dependencyanalyser.api.Classpath;
 import com.github.gv2011.dependencyanalyser.api.Dependency;
-import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
-import com.github.gv2011.dependencyanalyser.api.Version;
 import com.github.gv2011.util.icol.ISet;
 
 /**
@@ -58,17 +56,9 @@ import com.github.gv2011.util.icol.ISet;
  */
 class DependencyAnalyserImplIT {
 
-  private static final String GROUP_ID = "com.github.gv2011";
-  private static final String IMPLEMENTATION_ARTIFACT_ID = "dependency-analyser-implementation";
-  private static final String EXAMPLE_ARTIFACT_ID = "dependency-analyser-example";
-
   @Test
   void getDependenciesOfFetchedExamplePom() throws IOException {
-    final MavenCoordinates exampleCoordinates = Conversions.toMavenCoordinates(
-      GROUP_ID, EXAMPLE_ARTIFACT_ID, reactorVersion().toString(), "jar"
-    );
-
-    final String pomContent = new DependencyAnalyserImpl().getPom(exampleCoordinates);
+    final String pomContent = new DependencyAnalyserImpl().getPom(ExampleModule.coordinates());
 
     final Path projectDirectory = createTimestampedDirectory();
     Files.writeString(projectDirectory.resolve("pom.xml"), pomContent, StandardCharsets.UTF_8);
@@ -81,21 +71,10 @@ class DependencyAnalyserImplIT {
       && d.coordinates().identity().artifactId().equals("slf4j-api")
     );
     assertThat(
-      "expected org.slf4j:slf4j-api among " + EXAMPLE_ARTIFACT_ID + "'s resolved dependencies, found: " + deps,
+      "expected org.slf4j:slf4j-api among example's resolved dependencies, found: " + deps,
       containsSlf4jApi,
       is(true)
     );
-  }
-
-  /**
-   * example shares this reactor's version with implementation - neither
-   * overrides its parent's version - so implementation's own
-   * pom.properties (read via PomPropertiesReader) gives example's
-   * correct version too. Presence is guaranteed here: this class only
-   * ever runs as an IT, i.e. after packaging.
-   */
-  private static Version reactorVersion() {
-    return new PomPropertiesReader(GROUP_ID, IMPLEMENTATION_ARTIFACT_ID).readVersion().get();
   }
 
   /**
