@@ -24,9 +24,9 @@ import com.github.gv2011.util.icol.ISet;
  * <p>Package name is the signal: this is not part of the public API
  * surface. "Own" is decided by the crudest possible check - a hardcoded
  * substring match on groupId, see {@link #OWN_GROUP_ID_SUBSTRING} - on
- * purpose. No CLI parsing, no configuration, no cycle protection on the
- * parent/BOM walk. This class exists to exercise pomDependencyDeclarations
- * end to end against a real project, not to be the real tool.
+ * purpose. No CLI parsing, no configuration. This class exists to
+ * exercise pomDependencyDeclarations end to end against a real project,
+ * not to be the real tool.
  */
 public final class Main {
 
@@ -69,9 +69,19 @@ public final class Main {
   private record DeclarationSource(String declaringPom, boolean own) {}
 
   /**
-   * No cycle protection: a parent or BOM chain that (incorrectly) refers
-   * back to itself would recurse until it overflows the stack. Acceptable
-   * for a throwaway driver; not for the real tool this becomes later.
+   * Recursively walks one pom's own declarations together with its BOM
+   * imports and its parent, so {@code result} ends up with one entry per
+   * artifact found across the whole chain.
+   *
+   * @param pom the pom currently being walked
+   * @param label where {@code pom} came from in the walk (e.g.
+   *   {@code "<leaf>"}, {@code "parent groupId:artifactId:version"},
+   *   {@code "BOM groupId:artifactId:version"}) - recorded in each
+   *   DeclarationSource so the final report can say where a version was
+   *   declared, not just that it was
+   * @param own whether {@code pom} counts as "one's own", per
+   *   {@link #isOwn}
+   * @param result accumulates one entry per artifact found so far
    */
   private static void walk(
     final DependencyAnalyser analyser,
@@ -80,11 +90,15 @@ public final class Main {
     final boolean own,
     final Map<ArtifactIdentity, DeclarationSource> result
   ) {
+    // TODO no cycle protection: a parent or BOM chain that (incorrectly)
+    // refers back to itself would recurse until it overflows the stack.
+    // Acceptable for this throwaway driver; not for the real tool.
     for(final DependencyDeclaration declaration: pom.dependencyDeclarations()) {
-      // First declaration found wins: this pom's own management/dependencies
-      // are walked before its parent, and a parent before its own BOM
-      // imports are followed - close to Maven's real "nearest wins"
-      // precedence, though not a faithful reproduction of it.
+      // TODO "first declaration found wins" is only a crude approximation
+      // of Maven's real "nearest wins" precedence. Proper reporting
+      // should show every declaration found for a given artifact, not
+      // just the first, and let the reader judge a real conflict
+      // themselves.
       result.putIfAbsent(
         declaration.coordinates().identity(),
         new DeclarationSource(label + " (" + declaration.coordinates().version() + ")", own)
