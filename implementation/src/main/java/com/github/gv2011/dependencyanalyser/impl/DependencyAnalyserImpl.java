@@ -1,6 +1,7 @@
 package com.github.gv2011.dependencyanalyser.impl;
 
 import static com.github.gv2011.util.BeanUtils.beanBuilder;
+import static com.github.gv2011.util.ex.Exceptions.notYetImplemented;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -17,7 +18,7 @@ import com.github.gv2011.dependencyanalyser.api.Dependency;
 import com.github.gv2011.dependencyanalyser.api.DependencyAnalyser;
 import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
 import com.github.gv2011.dependencyanalyser.api.MavenScope;
-import com.github.gv2011.dependencyanalyser.api.PomDeclarations;
+import com.github.gv2011.dependencyanalyser.api.PomDependencyDeclarations;
 import com.github.gv2011.dependencyanalyser.api.Version;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenApi;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenApiResult;
@@ -169,13 +170,13 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
   }
 
   @Override
-  public PomDeclarations pomDeclarations(final Path projectDirectory) {
-    throw new UnsupportedOperationException("not yet implemented");
+  public PomDependencyDeclarations pomDependencyDeclarations(final Path projectDirectory) {
+    return notYetImplemented();
   }
 
   @Override
-  public PomDeclarations pomDeclarations(final MavenCoordinates coordinates) {
-    throw new UnsupportedOperationException("not yet implemented");
+  public PomDependencyDeclarations pomDependencyDeclarations(final MavenCoordinates coordinates) {
+    return notYetImplemented();
   }
 
   @Override

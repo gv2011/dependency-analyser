@@ -26,8 +26,8 @@ public interface DependencyAnalyser {
 
   /**
    * The dependencies of one Maven module — the actual artifacts it needs
-   * — as opposed to the dependency declarations (or specifications) in
-   * the module's own {@code pom.xml}, which only specify them.
+   * — as opposed to the dependency declarations in the module's own
+   * {@code pom.xml}, which only declare them.
    *
    * <p>A declaration and a dependency are not the same thing, and don't
    * correspond one-to-one. A single declaration can pull in further
@@ -48,20 +48,20 @@ public interface DependencyAnalyser {
   /**
    * What the given project's own pom.xml declares, read directly from
    * disk - unmerged with anything from a parent or an imported BOM. See
-   * {@link PomDeclarations}.
+   * {@link PomDependencyDeclarations}.
    *
    * @param projectDirectory directory containing the module's {@code pom.xml}
    */
-  PomDeclarations pomDeclarations(Path projectDirectory);
+  PomDependencyDeclarations pomDependencyDeclarations(Path projectDirectory);
 
   /**
    * What the pom.xml identified by these coordinates declares - fetched
    * via {@link #getPom(MavenCoordinates)}, then read the same way as the
-   * {@link #pomDeclarations(Path)} overload. Typically used for a parent
-   * or an imported BOM, not the leaf project itself, which usually has a
-   * {@code projectDirectory} to read directly instead.
+   * {@link #pomDependencyDeclarations(Path)} overload. Typically used for
+   * a parent or an imported BOM, not the leaf project itself, which
+   * usually has a {@code projectDirectory} to read directly instead.
    */
-  PomDeclarations pomDeclarations(MavenCoordinates coordinates);
+  PomDependencyDeclarations pomDependencyDeclarations(MavenCoordinates coordinates);
 
   Version parseVersion(String version);
 
