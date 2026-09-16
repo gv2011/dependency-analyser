@@ -1,6 +1,7 @@
 package com.github.gv2011.dependencyanalyser.api;
 
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.ServiceLoader;
 
@@ -66,5 +67,32 @@ public interface DependencyAnalyser {
   Version parseVersion(String version);
 
   String getPom(MavenCoordinates coordinates);
+
+  /**
+   * The artifacts the leaf project's own pom.xml lists directly in its
+   * {@code <dependencies>} - identity only, regardless of whether a
+   * version is stated right there. An entry that relies entirely on
+   * {@code dependencyManagement} for its version still counts as
+   * "local" - see {@link #getVersionLocations(Path, ISet)} for finding
+   * that version.
+   *
+   * @param projectDirectory directory containing the leaf's own {@code pom.xml}
+   */
+  ISet<ArtifactIdentity> getLocalDependencies(Path projectDirectory);
+
+  /**
+   * For each of the given artifacts, where - if anywhere reachable from
+   * the leaf via its parent chain and BOM imports (the leaf's own
+   * {@code <dependencies>}/{@code <dependencyManagement>} included) -
+   * its version is declared. An artifact absent from the result was not
+   * found anywhere in that reachable chain.
+   *
+   * @param projectDirectory directory containing the leaf's own {@code pom.xml}
+   * @param identities the artifacts to locate a version for - typically
+   *   from {@link #getLocalDependencies(Path)}
+   */
+  Map<ArtifactIdentity, VersionLocation> getVersionLocations(
+    Path projectDirectory, ISet<ArtifactIdentity> identities
+  );
 
 }

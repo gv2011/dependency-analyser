@@ -1,6 +1,7 @@
 package com.github.gv2011.dependencyanalyser.impl;
 
 import static com.github.gv2011.util.BeanUtils.beanBuilder;
+import static com.github.gv2011.util.ex.Exceptions.notYetImplemented;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -8,10 +9,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.apache.maven.cli.MavenApiImpl;
 
+import com.github.gv2011.dependencyanalyser.api.ArtifactIdentity;
 import com.github.gv2011.dependencyanalyser.api.Classpath;
 import com.github.gv2011.dependencyanalyser.api.Dependency;
 import com.github.gv2011.dependencyanalyser.api.DependencyAnalyser;
@@ -19,6 +22,7 @@ import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
 import com.github.gv2011.dependencyanalyser.api.MavenScope;
 import com.github.gv2011.dependencyanalyser.api.PomDependencyDeclarations;
 import com.github.gv2011.dependencyanalyser.api.Version;
+import com.github.gv2011.dependencyanalyser.api.VersionLocation;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenApi;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenApiResult;
 import com.github.gv2011.util.icol.ICollections;
@@ -200,6 +204,18 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
     // still an open design question - see PomFetcher's own javadoc for
     // what context actually changes.
     return new PomFetcher(Opt.empty()).fetchPomContent(coordinates);
+  }
+
+  @Override
+  public ISet<ArtifactIdentity> getLocalDependencies(final Path projectDirectory) {
+    return notYetImplemented();
+  }
+
+  @Override
+  public Map<ArtifactIdentity, VersionLocation> getVersionLocations(
+    final Path projectDirectory, final ISet<ArtifactIdentity> identities
+  ) {
+    return notYetImplemented();
   }
 
 }
