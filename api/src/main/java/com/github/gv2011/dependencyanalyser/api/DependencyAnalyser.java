@@ -5,6 +5,7 @@ import java.util.NoSuchElementException;
 import java.util.ServiceLoader;
 
 import com.github.gv2011.util.icol.ISet;
+import com.github.gv2011.util.icol.Opt;
 
 /**
  * Entry point for analysing a Maven project already checked out on disk.
@@ -27,6 +28,10 @@ public interface DependencyAnalyser {
   MavenCoordinates getCoordinates(Path projectDirectory);
 
   ISet<Dependency> getDependencies(MavenCoordinates project, Classpath classpath);
+
+  ISet<MavenCoordinates> getBoms(MavenCoordinates project);
+
+  Opt<MavenCoordinates> getParent(MavenCoordinates project);
 
   ISet<ArtifactIdentity> getDirectlyDeclaredDependencies(MavenCoordinates project);
 
