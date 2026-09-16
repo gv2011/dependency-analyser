@@ -16,8 +16,9 @@ import com.github.gv2011.util.beans.Bean;
 public interface DependencyDeclaration extends Bean {
 
   /**
-   * Always version-bearing: never inferred, defaulted, or inherited -
-   * only what this specific pom.xml's own {@code <version>} states.
+   * The artifact this declaration is for, including its version -
+   * exactly what this pom's own {@code <version>} states, never
+   * inferred or inherited from elsewhere.
    */
   MavenCoordinates coordinates();
 
