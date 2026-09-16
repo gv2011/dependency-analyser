@@ -10,11 +10,6 @@ public interface VersionDeclaration extends Bean{
   ArtifactIdentity artifact();
 
   /**
-   * @return the project where the version is specified
-   */
-  MavenCoordinates declarationLocation();
-
-  /**
    * @return the specified version
    */
   Version version();
