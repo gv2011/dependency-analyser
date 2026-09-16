@@ -22,9 +22,9 @@ public interface DependencyAnalyser {
     return ServiceLoader.load(DependencyAnalyser.class).findFirst().get();
   }
 
-  MavenCoordinates getProject(Path projectDirectory);
+  Project getProject(Path projectDirectory);
 
-  MavenCoordinates getProject(MavenCoordinates projectCoordinates);
+  Project getProject(MavenCoordinates projectCoordinates);
 
   Version parseVersion(String version);
 
