@@ -45,20 +45,33 @@ public final class PomChainWalker {
   public Map<ArtifactIdentity, LocatedDeclaration> declarationsReachableFrom(final Path leafDirectory) {
     final Project leaf = analyser.getProject(leafDirectory);
     final Map<ArtifactIdentity, LocatedDeclaration> result = new HashMap<>();
-    walk(leaf, new HashSet<>(), result);
+    visit(leaf, new HashSet<>(), result);
     return result;
   }
 
   /**
-   * @param current the project being visited at this step of the walk
+   * Visits one project: records its own version declarations into
+   * {@code result} (one entry per artifact not already recorded there -
+   * see {@link #declarationsReachableFrom(Path)} for why the first one
+   * found wins), then recurses into every project reachable from it -
+   * its BOM imports first, then its parent - skipping any already in
+   * {@code visited}.
+   *
+   * @param current the project being visited
+   * @param visited every project visited so far in this walk; this call
+   *   adds {@code current} to it, and recursion stops for any project
+   *   already present (cycle protection)
+   * @param result accumulates one entry per artifact found so far -
+   *   mutated in place rather than returned, since every recursive call
+   *   shares the same accumulating result
    */
-  private void walk(
+  private void visit(
     final Project current,
     final Set<MavenCoordinates> visited,
     final Map<ArtifactIdentity, LocatedDeclaration> result
   ) {
     if(!visited.add(current.coordinates())) {
-      return; // already walked - a BOM (or, wrongly, a parent) reached more than once
+      return; // already visited - a BOM (or, wrongly, a parent) reached more than once
     }
     // TODO "first declaration found wins" is only a crude approximation
     // of Maven's real "nearest wins" precedence. Proper reporting should
@@ -68,10 +81,10 @@ public final class PomChainWalker {
       result.putIfAbsent(declaration.artifact(), new LocatedDeclaration(declaration, current.coordinates()));
     }
     for(final Dependency bom: current.boms()) {
-      walk(analyser.getProject(bom.coordinates()), visited, result);
+      visit(analyser.getProject(bom.coordinates()), visited, result);
     }
     current.parent().ifPresentDo(parentCoordinates ->
-      walk(analyser.getProject(parentCoordinates), visited, result)
+      visit(analyser.getProject(parentCoordinates), visited, result)
     );
   }
 
