@@ -34,7 +34,7 @@ public final class PomChainWalker {
    * @param declaringProject the project whose own text {@code declaration}
    *   came from - not carried by VersionDeclaration itself
    */
-  public record Location(VersionDeclaration declaration, MavenCoordinates declaringProject) {}
+  public record LocatedDeclaration(VersionDeclaration declaration, MavenCoordinates declaringProject) {}
 
   /**
    * Every version declaration found across every project reachable from
@@ -42,9 +42,9 @@ public final class PomChainWalker {
    * artifact - first one found wins (the leaf's own, then its parent
    * chain and BOM imports, depth-first).
    */
-  public Map<ArtifactIdentity, Location> declarationsReachableFrom(final Path leafDirectory) {
+  public Map<ArtifactIdentity, LocatedDeclaration> declarationsReachableFrom(final Path leafDirectory) {
     final Project leaf = analyser.getProject(leafDirectory);
-    final Map<ArtifactIdentity, Location> result = new HashMap<>();
+    final Map<ArtifactIdentity, LocatedDeclaration> result = new HashMap<>();
     walk(leaf, new HashSet<>(), result);
     return result;
   }
@@ -52,7 +52,7 @@ public final class PomChainWalker {
   private void walk(
     final Project project,
     final Set<MavenCoordinates> visited,
-    final Map<ArtifactIdentity, Location> result
+    final Map<ArtifactIdentity, LocatedDeclaration> result
   ) {
     if(!visited.add(project.coordinates())) {
       return; // already walked - a BOM (or, wrongly, a parent) reached more than once
@@ -62,7 +62,7 @@ public final class PomChainWalker {
     // show every declaration found for a given artifact, not just the
     // first, and let the reader judge a real conflict themselves.
     for(final VersionDeclaration declaration: project.getVersionDeclarations()) {
-      result.putIfAbsent(declaration.artifact(), new Location(declaration, project.coordinates()));
+      result.putIfAbsent(declaration.artifact(), new LocatedDeclaration(declaration, project.coordinates()));
     }
     for(final Dependency bom: project.boms()) {
       walk(analyser.getProject(bom.coordinates()), visited, result);
