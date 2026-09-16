@@ -14,35 +14,45 @@ import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
 import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 
 import com.github.gv2011.dependencyanalyser.api.DependencyDeclaration;
+import com.github.gv2011.dependencyanalyser.api.DirectlyDeclaredDependencies;
 import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
-import com.github.gv2011.dependencyanalyser.api.PomDependencyDeclarations;
 import com.github.gv2011.util.icol.ICollections;
 import com.github.gv2011.util.icol.ISet;
 import com.github.gv2011.util.icol.Opt;
 
 /**
- * Reads one pom.xml's own text - nothing more - via Maven's own raw model
- * reader ({@link MavenXpp3Reader}). "Raw" here means exactly what
- * {@link PomDependencyDeclarations} itself promises: no parent
+ * Reads one project's own pom.xml text - nothing more - via Maven's own
+ * raw model reader ({@link MavenXpp3Reader}). "Raw" here means exactly
+ * what {@link DirectlyDeclaredDependencies} itself promises: no parent
  * inheritance, no BOM-import expansion, no interpolation. This class does
  * no fetching of its own; the caller supplies the pom.xml content,
  * however it was obtained (straight from disk for the leaf project,
  * {@code DependencyAnalyser.getPom(...)} for anything else).
  */
-public final class PomDependencyDeclarationsParser {
+public final class DirectlyDeclaredDependenciesParser {
 
-  private PomDependencyDeclarationsParser(){}
+  private DirectlyDeclaredDependenciesParser(){}
 
-  public static PomDependencyDeclarations parse(final String pomContent) {
+  /**
+   * @param knownCoordinates the project's own coordinates, when already
+   *   known (the caller fetched pomContent by them - every case except
+   *   the leaf project). {@code Opt.empty()} means "figure it out from
+   *   pomContent's own text" - only possible when that text states its
+   *   own groupId and version directly rather than inheriting either
+   *   from its parent; fails loudly (not yet implemented) otherwise,
+   *   since resolving that requires walking to the parent, out of scope
+   *   for this class.
+   */
+  public static DirectlyDeclaredDependencies parse(
+    final String pomContent, final Opt<MavenCoordinates> knownCoordinates
+  ) {
     final Model model = readModel(pomContent);
-    return beanBuilder(PomDependencyDeclarations.class)
-      .set(PomDependencyDeclarations::groupId).to(Opt.ofNullable(model.getGroupId()))
-      .set(PomDependencyDeclarations::artifactId).to(model.getArtifactId())
-      .set(PomDependencyDeclarations::version).to(
-        Opt.ofNullable(model.getVersion()).map(VersionImpl::parse)
+    return beanBuilder(DirectlyDeclaredDependencies.class)
+      .set(DirectlyDeclaredDependencies::mavenCoordinates).to(
+        knownCoordinates.orElseGet(() -> ownCoordinatesFromText(model))
       )
-      .set(PomDependencyDeclarations::parent).to(parent(model))
-      .set(PomDependencyDeclarations::dependencyDeclarations).to(dependencyDeclarations(model))
+      .set(DirectlyDeclaredDependencies::parent).to(parent(model))
+      .set(DirectlyDeclaredDependencies::dependencyDeclarations).to(dependencyDeclarations(model))
       .build()
     ;
   }
@@ -54,6 +64,21 @@ public final class PomDependencyDeclarationsParser {
     catch(final IOException | XmlPullParserException e) {
       throw new IllegalArgumentException("Could not parse pom content as a Maven model", e);
     }
+  }
+
+  private static MavenCoordinates ownCoordinatesFromText(final Model model) {
+    if(model.getGroupId()==null || model.getVersion()==null) {
+      // groupId and/or version inherited from the parent, not stated in
+      // this pom's own text - not resolvable without walking to the
+      // parent, out of scope for this class.
+      return notYetImplemented(
+        "groupId and/or version inherited from the parent, not stated in "
+        + model.getArtifactId() + "'s own pom.xml text"
+      );
+    }
+    return Conversions.toMavenCoordinates(
+      model.getGroupId(), model.getArtifactId(), model.getVersion(), packaging(model)
+    );
   }
 
   private static Opt<MavenCoordinates> parent(final Model model) {
@@ -108,13 +133,18 @@ public final class PomDependencyDeclarationsParser {
   }
 
   /**
-   * Dependency.getType() carries a hardcoded "jar" default in the
-   * generated model class itself (from maven.mdo), present on a bare
-   * read - not something that depends on model building/merging.
-   * Applied defensively here regardless, rather than assumed.
+   * Dependency.getType()/Model.getPackaging() both carry a hardcoded
+   * "jar" default in the generated model class itself (from maven.mdo),
+   * present on a bare read - not something that depends on model
+   * building/merging. Applied defensively here regardless, rather than
+   * assumed.
    */
   private static String type(final Dependency d) {
     return Opt.ofNullable(d.getType()).orElse("jar");
+  }
+
+  private static String packaging(final Model model) {
+    return Opt.ofNullable(model.getPackaging()).orElse("jar");
   }
 
 }

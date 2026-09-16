@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.github.gv2011.dependencyanalyser.api.DependencyAnalyser;
-import com.github.gv2011.dependencyanalyser.api.PomDependencyDeclarations;
+import com.github.gv2011.dependencyanalyser.api.DirectlyDeclaredDependencies;
 
 class DependencyAnalyserImplTest {
 
@@ -23,7 +23,7 @@ class DependencyAnalyserImplTest {
   }
 
   /**
-   * Writes the same hand-written fixture PomDependencyDeclarationsParserTest
+   * Writes the same hand-written fixture DirectlyDeclaredDependenciesParserTest
    * uses into a fresh JUnit-managed temp directory, rather than pointing at
    * any checked-out sibling module directory - same reasoning as
    * DependencyAnalyserImplIT's own move away from Paths.get("..", "api"):
@@ -31,14 +31,14 @@ class DependencyAnalyserImplTest {
    * at test run time.
    */
   @Test
-  void pomDependencyDeclarationsOfDirectoryTest(@TempDir final Path tempDir) throws IOException {
+  void directlyDeclaredDependenciesOfDirectoryTest(@TempDir final Path tempDir) throws IOException {
     Files.writeString(
       tempDir.resolve("pom.xml"), TestResources.read("/sample-pom.xml"), StandardCharsets.UTF_8
     );
-    final PomDependencyDeclarations declarations =
-      new DependencyAnalyserImpl().pomDependencyDeclarations(tempDir)
+    final DirectlyDeclaredDependencies declarations =
+      new DependencyAnalyserImpl().directlyDeclaredDependencies(tempDir)
     ;
-    assertThat(declarations.artifactId(), is("sample-pom-declarations-fixture"));
+    assertThat(declarations.mavenCoordinates().identity().artifactId(), is("sample-pom-declarations-fixture"));
   }
 
 }

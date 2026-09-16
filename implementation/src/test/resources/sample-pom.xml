@@ -21,7 +21,7 @@
     </dependency>
     <dependency>
       <!-- No <version> of its own - relies on dependencyManagement below.
-           Must NOT appear in PomDependencyDeclarations.dependencyDeclarations(). -->
+           Must NOT appear in DirectlyDeclaredDependencies.dependencyDeclarations(). -->
       <groupId>com.example</groupId>
       <artifactId>managed-only-dependency</artifactId>
     </dependency>

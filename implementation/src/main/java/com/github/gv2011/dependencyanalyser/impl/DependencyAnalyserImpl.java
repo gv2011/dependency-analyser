@@ -18,9 +18,9 @@ import com.github.gv2011.dependencyanalyser.api.ArtifactIdentity;
 import com.github.gv2011.dependencyanalyser.api.Classpath;
 import com.github.gv2011.dependencyanalyser.api.Dependency;
 import com.github.gv2011.dependencyanalyser.api.DependencyAnalyser;
+import com.github.gv2011.dependencyanalyser.api.DirectlyDeclaredDependencies;
 import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
 import com.github.gv2011.dependencyanalyser.api.MavenScope;
-import com.github.gv2011.dependencyanalyser.api.PomDependencyDeclarations;
 import com.github.gv2011.dependencyanalyser.api.Version;
 import com.github.gv2011.dependencyanalyser.api.VersionLocation;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenApi;
@@ -173,7 +173,7 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
   }
 
   @Override
-  public PomDependencyDeclarations pomDependencyDeclarations(final Path projectDirectory) {
+  public DirectlyDeclaredDependencies directlyDeclaredDependencies(final Path projectDirectory) {
     final String pomContent;
     try {
       pomContent = Files.readString(projectDirectory.resolve("pom.xml"), StandardCharsets.UTF_8);
@@ -181,12 +181,12 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
     catch(final IOException e) {
       throw new UncheckedIOException(e);
     }
-    return PomDependencyDeclarationsParser.parse(pomContent);
+    return DirectlyDeclaredDependenciesParser.parse(pomContent, Opt.empty());
   }
 
   @Override
-  public PomDependencyDeclarations pomDependencyDeclarations(final MavenCoordinates coordinates) {
-    return PomDependencyDeclarationsParser.parse(getPom(coordinates));
+  public DirectlyDeclaredDependencies directlyDeclaredDependencies(final MavenCoordinates coordinates) {
+    return DirectlyDeclaredDependenciesParser.parse(getPom(coordinates), Opt.of(coordinates));
   }
 
   @Override

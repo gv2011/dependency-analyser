@@ -11,7 +11,7 @@ import com.github.gv2011.util.beans.Bean;
  * <p>A declaration with no {@code <version>} of its own (relying on
  * {@code dependencyManagement}, inherited or otherwise, to supply one) is
  * not represented by this type at all - see
- * {@link PomDependencyDeclarations#dependencyDeclarations()}.
+ * {@link DirectlyDeclaredDependencies#dependencyDeclarations()}.
  */
 public interface DependencyDeclaration extends Bean {
 

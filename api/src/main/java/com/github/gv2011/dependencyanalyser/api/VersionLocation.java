@@ -13,7 +13,7 @@ public interface VersionLocation extends Bean {
   /**
    * The pom that declared this version - absent means the leaf project
    * itself, which may not have fully-known coordinates of its own (see
-   * {@link PomDependencyDeclarations}).
+   * {@link DirectlyDeclaredDependencies}).
    */
   Opt<MavenCoordinates> declaringPom();
 

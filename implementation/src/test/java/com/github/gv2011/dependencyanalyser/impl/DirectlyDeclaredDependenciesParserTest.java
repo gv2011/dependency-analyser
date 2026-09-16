@@ -6,7 +6,7 @@ import static org.hamcrest.Matchers.is;
 import org.junit.jupiter.api.Test;
 
 import com.github.gv2011.dependencyanalyser.api.DependencyDeclaration;
-import com.github.gv2011.dependencyanalyser.api.PomDependencyDeclarations;
+import com.github.gv2011.dependencyanalyser.api.DirectlyDeclaredDependencies;
 import com.github.gv2011.util.icol.ISet;
 import com.github.gv2011.util.icol.Opt;
 
@@ -21,25 +21,23 @@ import com.github.gv2011.util.icol.Opt;
  * ({@code <scope>import</scope><type>pom</type>}).
  *
  * <p>Deliberately does NOT cover the "not yet implemented" edge case
- * (parent version inherited/omitted, MNG-624's relativePath inference) -
- * that one is genuinely rare in practice, unlike this pom's own groupId
- * and version being inherited, which every module in this fixture's real
- * counterpart module (dependency-analyser-example) actually does - see
- * PomDependencyDeclarationsParserIT for that, against example's real,
- * unmodified pom.xml.
+ * (own or parent version inherited/omitted) - see
+ * DirectlyDeclaredDependenciesParserIT for that, against example's real,
+ * unmodified pom.xml, which happens to hit exactly one of them.
  */
-class PomDependencyDeclarationsParserTest {
+class DirectlyDeclaredDependenciesParserTest {
 
   @Test
   void parsesSamplePom() {
-    final PomDependencyDeclarations declarations =
-      PomDependencyDeclarationsParser.parse(TestResources.read("/sample-pom.xml"))
-    ;
+    final DirectlyDeclaredDependencies declarations = DirectlyDeclaredDependenciesParser.parse(
+      TestResources.read("/sample-pom.xml"), Opt.empty()
+    );
 
-    assertThat(declarations.groupId(), is(Opt.of("com.example")));
-    assertThat(declarations.artifactId(), is("sample-pom-declarations-fixture"));
-    assertThat(declarations.version().isPresent(), is(true));
-    assertThat(declarations.version().get().toString(), is("1.0.0-test"));
+    assertThat(declarations.mavenCoordinates().identity().groupId(), is("com.example"));
+    assertThat(
+      declarations.mavenCoordinates().identity().artifactId(), is("sample-pom-declarations-fixture")
+    );
+    assertThat(declarations.mavenCoordinates().version().toString(), is("1.0.0-test"));
 
     assertThat("expected a <parent>", declarations.parent().isPresent(), is(true));
     assertThat(declarations.parent().get().identity().artifactId(), is("sample-parent"));
