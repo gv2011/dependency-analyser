@@ -47,8 +47,8 @@ public interface DependencyAnalyser {
   ISet<Dependency> getDependencies(Path projectDirectory, Classpath classpath);
 
   /**
-   * What the given project's own pom.xml declares, read directly from
-   * disk - unmerged with anything from a parent or an imported BOM. See
+   * What the given project's own pom.xml declares - unmerged with
+   * anything from a parent or an imported BOM. See
    * {@link PomDependencyDeclarations}.
    *
    * @param projectDirectory directory containing the module's {@code pom.xml}
