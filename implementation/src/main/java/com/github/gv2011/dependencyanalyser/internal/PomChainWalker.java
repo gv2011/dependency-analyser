@@ -14,8 +14,10 @@ import com.github.gv2011.dependencyanalyser.api.Project;
 import com.github.gv2011.dependencyanalyser.api.VersionDeclaration;
 
 /**
- * Walks a leaf project's own version declarations together with its
- * whole reachable parent/BOM-import chain. Uses only the
+ * Walks a leaf project's own version declarations together with those of
+ * every project reachable from it. A project is reachable from the leaf
+ * if it is the leaf itself, or is the parent of a reachable project, or
+ * is a BOM imported by a reachable project. Uses only the
  * DependencyAnalyser API (getProject, and Project's own parent(),
  * boms(), getVersionDeclarations()) - no direct Maven access of its own.
  */
@@ -35,7 +37,8 @@ public final class PomChainWalker {
   public record Location(VersionDeclaration declaration, MavenCoordinates declaringProject) {}
 
   /**
-   * Every version declaration reachable from the leaf, keyed by
+   * Every version declaration found across every project reachable from
+   * the leaf (see class javadoc for what "reachable" means), keyed by
    * artifact - first one found wins (the leaf's own, then its parent
    * chain and BOM imports, depth-first).
    */
