@@ -192,7 +192,14 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
 
   @Override
   public String getPom(final MavenCoordinates coordinates) {
-    return PomFetcher.fetchPomContent(coordinates);
+    // TODO context-free for now (Opt.empty()) - doesn't yet resolve an
+    // artifact that lives only in a repository declared in some real
+    // project's own pom.xml (a private/internal repository being the
+    // common case). Threading a real context Path through here, and
+    // through the public DependencyAnalyser API that reaches it, is
+    // still an open design question - see PomFetcher's own javadoc for
+    // what context actually changes.
+    return new PomFetcher(Opt.empty()).fetchPomContent(coordinates);
   }
 
 }

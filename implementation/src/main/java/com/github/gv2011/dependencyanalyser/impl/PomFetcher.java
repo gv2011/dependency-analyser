@@ -11,41 +11,66 @@ import java.util.List;
 import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenApi;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenApiResult;
+import com.github.gv2011.util.icol.Opt;
 
 /**
  * Fetches an already-installed/published artifact's own pom.xml content,
- * given only its coordinates - no project on disk needed: this generates
- * its own throwaway, minimal project directory to run dependency:copy
- * from, since every Maven goal needs some project context to execute even
- * when what it fetches is entirely unrelated to that context.
+ * given only its coordinates.
  *
- * <p>dependency:copy writes to a file - there is no way around that, it is
- * how the goal itself works - but that file is this method's own internal,
- * transient detail: read and deleted, along with the throwaway project
- * directory, before returning. The caller only ever sees the content
- * itself, as a String, never a file path.
+ * <p>Repository resolution needs a real Maven project as context - one
+ * whose own (possibly inherited) {@code <repositories>} actually cover
+ * wherever the requested artifact lives, if that's anywhere other than
+ * Central or whatever settings.xml configures globally. Two modes,
+ * chosen at construction via the {@code context} constructor parameter:
+ *
+ * <ul>
+ * <li>{@code Opt.empty()}: context-free - a synthetic, throwaway project
+ * with no {@code <repositories>} of its own is used, equivalent to
+ * running Maven from some arbitrary, non-project folder. Only whatever
+ * settings.xml configures globally (or Central) is visible.</li>
+ * <li>{@code Opt.of(path)}: the real project at {@code path} is used as
+ * the resolution context directly, so its own (and inherited)
+ * repositories apply. Needed for an artifact that lives in a repository
+ * declared only in that project's own pom.xml (or one it inherits) - a
+ * private/internal repository being the common case.</li>
+ * </ul>
  */
 public final class PomFetcher {
 
-  private PomFetcher(){}
+  private final Opt<Path> context;
 
-  public static String fetchPomContent(final MavenCoordinates coordinates) {
-    final Path projectDir = createThrowawayProject();
+  public PomFetcher(final Opt<Path> context) {
+    this.context = context;
+  }
+
+  public String fetchPomContent(final MavenCoordinates coordinates) {
+    return context.isPresent()
+      ? fetchUsing(coordinates, context.get())
+      : fetchContextFree(coordinates)
+    ;
+  }
+
+  private String fetchContextFree(final MavenCoordinates coordinates) {
+    final Path throwawayProjectDir = createThrowawayProject();
     try {
-      final Path outputDir = createTempDir("pom-fetch-output-");
-      try {
-        return copyAndRead(coordinates, projectDir, outputDir);
-      }
-      finally {
-        deleteRecursively(outputDir);
-      }
+      return fetchUsing(coordinates, throwawayProjectDir);
     }
     finally {
-      deleteRecursively(projectDir);
+      deleteRecursively(throwawayProjectDir);
     }
   }
 
-  private static String copyAndRead(
+  private String fetchUsing(final MavenCoordinates coordinates, final Path projectDir) {
+    final Path outputDir = createTempDir("pom-fetch-output-");
+    try {
+      return copyAndRead(coordinates, projectDir, outputDir);
+    }
+    finally {
+      deleteRecursively(outputDir);
+    }
+  }
+
+  private String copyAndRead(
     final MavenCoordinates coordinates, final Path projectDir, final Path outputDir
   ) {
     // MavenApi requires this system property to be set; normally the `mvn`
@@ -57,7 +82,7 @@ public final class PomFetcher {
     );
     final MavenApiResult result = MavenApi.createApi().doMain(
       new String[]{
-        "-N", // this throwaway project only, not a reactor recursion
+        "-N", // just this one project, not a reactor recursion
         "-B", // batch mode: no interactive prompts
         "dependency:copy",
         // groupId:artifactId:version:packaging - the artifact's own real
@@ -110,7 +135,7 @@ public final class PomFetcher {
     </project>
     """;
 
-  private static Path createThrowawayProject() {
+  private Path createThrowawayProject() {
     final Path dir = createTempDir("pom-fetch-project-");
     try {
       Files.writeString(dir.resolve("pom.xml"), MINIMAL_POM, StandardCharsets.UTF_8);
@@ -121,7 +146,7 @@ public final class PomFetcher {
     return dir;
   }
 
-  private static Path createTempDir(final String prefix) {
+  private Path createTempDir(final String prefix) {
     try {
       return Files.createTempDirectory(prefix);
     }
@@ -130,7 +155,7 @@ public final class PomFetcher {
     }
   }
 
-  private static void deleteRecursively(final Path dir) {
+  private void deleteRecursively(final Path dir) {
     try(var walk = Files.walk(dir)) {
       walk.sorted(Comparator.reverseOrder()).forEach(p -> {
         try {
