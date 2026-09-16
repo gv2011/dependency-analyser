@@ -16,6 +16,6 @@ public interface PomStep extends Bean {
 
   PomRelation relation();
 
-  MavenCoordinates coordinates();
+  MavenCoordinates projectCoordinates();
 
 }

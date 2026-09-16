@@ -72,16 +72,16 @@ public final class Main {
         if(!first) {
           location.append(" -> ");
         }
-        location.append(step.relation()).append(' ').append(format(step.coordinates()));
+        location.append(step.relation()).append(' ').append(format(step.projectCoordinates()));
         first = false;
       }
     }
     return location.append(" (").append(source.version()).append(')').toString();
   }
 
-  private static String format(final MavenCoordinates coordinates) {
-    return coordinates.identity().groupId() + ":" + coordinates.identity().artifactId()
-      + ":" + coordinates.version();
+  private static String format(final MavenCoordinates projectCoordinates) {
+    return projectCoordinates.identity().groupId() + ":" + projectCoordinates.identity().artifactId()
+      + ":" + projectCoordinates.version();
   }
 
 }

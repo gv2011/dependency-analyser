@@ -21,10 +21,10 @@ class PomFetcherTest {
 
   @Test
   void fetchesSlf4jApiPom() {
-    final MavenCoordinates coordinates =
+    final MavenCoordinates projectCoordinates =
       Conversions.toMavenCoordinates("org.slf4j", "slf4j-api", "2.0.19", "jar")
     ;
-    final String pomContent = new DependencyAnalyserImpl().getPom(coordinates);
+    final String pomContent = new DependencyAnalyserImpl().getPom(projectCoordinates);
     assertThat(pomContent, containsString("<artifactId>slf4j-api</artifactId>"));
   }
 

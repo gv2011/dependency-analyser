@@ -31,7 +31,7 @@ class DirectlyDeclaredDependenciesParserIT {
 
   @Test
   void parsesExampleModulesRealPom() {
-    final MavenCoordinates exampleCoordinates = ExampleModule.coordinates();
+    final MavenCoordinates exampleCoordinates = ExampleModule.projectCoordinates();
     final String pomContent = new DependencyAnalyserImpl().getPom(exampleCoordinates);
     final DirectlyDeclaredDependencies declarations =
       DirectlyDeclaredDependenciesParser.parse(pomContent, Opt.of(exampleCoordinates))

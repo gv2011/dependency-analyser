@@ -63,11 +63,11 @@ public interface DependencyAnalyser {
    * for a parent or an imported BOM, not the leaf project itself, which
    * usually has a {@code projectDirectory} to read directly instead.
    */
-  DirectlyDeclaredDependencies directlyDeclaredDependencies(MavenCoordinates coordinates);
+  DirectlyDeclaredDependencies directlyDeclaredDependencies(MavenCoordinates projectCoordinates);
 
   Version parseVersion(String version);
 
-  String getPom(MavenCoordinates coordinates);
+  String getPom(MavenCoordinates projectCoordinates);
 
   /**
    * The artifacts the leaf project's own pom.xml lists directly in its

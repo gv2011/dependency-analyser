@@ -58,7 +58,7 @@ class DependencyAnalyserImplIT {
 
   @Test
   void getDependenciesOfFetchedExamplePom() throws IOException {
-    final String pomContent = new DependencyAnalyserImpl().getPom(ExampleModule.coordinates());
+    final String pomContent = new DependencyAnalyserImpl().getPom(ExampleModule.projectCoordinates());
 
     final Path projectDirectory = createTimestampedDirectory();
     Files.writeString(projectDirectory.resolve("pom.xml"), pomContent, StandardCharsets.UTF_8);

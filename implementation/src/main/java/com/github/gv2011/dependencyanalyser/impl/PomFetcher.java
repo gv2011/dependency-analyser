@@ -43,27 +43,27 @@ public final class PomFetcher {
     this.context = context;
   }
 
-  public String fetchPomContent(final MavenCoordinates coordinates) {
+  public String fetchPomContent(final MavenCoordinates projectCoordinates) {
     return context.isPresent()
-      ? fetchUsing(coordinates, context.get())
-      : fetchContextFree(coordinates)
+      ? fetchUsing(projectCoordinates, context.get())
+      : fetchContextFree(projectCoordinates)
     ;
   }
 
-  private String fetchContextFree(final MavenCoordinates coordinates) {
+  private String fetchContextFree(final MavenCoordinates projectCoordinates) {
     final Path throwawayProjectDir = createThrowawayProject();
     try {
-      return fetchUsing(coordinates, throwawayProjectDir);
+      return fetchUsing(projectCoordinates, throwawayProjectDir);
     }
     finally {
       deleteRecursively(throwawayProjectDir);
     }
   }
 
-  private String fetchUsing(final MavenCoordinates coordinates, final Path projectDir) {
+  private String fetchUsing(final MavenCoordinates projectCoordinates, final Path projectDir) {
     final Path outputDir = createTempDir("pom-fetch-output-");
     try {
-      return copyAndRead(coordinates, projectDir, outputDir);
+      return copyAndRead(projectCoordinates, projectDir, outputDir);
     }
     finally {
       deleteRecursively(outputDir);
@@ -71,7 +71,7 @@ public final class PomFetcher {
   }
 
   private String copyAndRead(
-    final MavenCoordinates coordinates, final Path projectDir, final Path outputDir
+    final MavenCoordinates projectCoordinates, final Path projectDir, final Path outputDir
   ) {
     // MavenApi requires this system property to be set; normally the `mvn`
     // launcher script sets it, which programmatic embedding bypasses. Same
@@ -86,20 +86,20 @@ public final class PomFetcher {
         "-B", // batch mode: no interactive prompts
         "dependency:copy",
         // groupId:artifactId:version:packaging - the artifact's own real
-        // packaging (coordinates.identity().type()) is irrelevant here;
+        // packaging (projectCoordinates.identity().type()) is irrelevant here;
         // :pom always means "fetch the POM file itself", regardless of
         // what the artifact is otherwise packaged as.
         "-Dartifact="
-          + coordinates.identity().groupId() + ":"
-          + coordinates.identity().artifactId() + ":"
-          + coordinates.version() + ":pom",
+          + projectCoordinates.identity().groupId() + ":"
+          + projectCoordinates.identity().artifactId() + ":"
+          + projectCoordinates.version() + ":pom",
         "-DoutputDirectory=" + outputDir.toAbsolutePath(),
       },
       projectDir.toAbsolutePath().toString()
     );
     if(!result.exceptions().isEmpty()) {
       final RuntimeException toThrow = new RuntimeException(
-        "dependency:copy failed for " + coordinates + ": " + result.exceptions().size() + " exception(s)"
+        "dependency:copy failed for " + projectCoordinates + ": " + result.exceptions().size() + " exception(s)"
       );
       result.exceptions().forEach(toThrow::addSuppressed);
       throw toThrow;

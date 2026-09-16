@@ -18,7 +18,7 @@ final class ExampleModule {
 
   private ExampleModule(){}
 
-  static MavenCoordinates coordinates() {
+  static MavenCoordinates projectCoordinates() {
     return Conversions.toMavenCoordinates(GROUP_ID, ARTIFACT_ID, reactorVersion().toString(), "jar");
   }
 

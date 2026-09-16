@@ -185,8 +185,8 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
   }
 
   @Override
-  public DirectlyDeclaredDependencies directlyDeclaredDependencies(final MavenCoordinates coordinates) {
-    return DirectlyDeclaredDependenciesParser.parse(getPom(coordinates), Opt.of(coordinates));
+  public DirectlyDeclaredDependencies directlyDeclaredDependencies(final MavenCoordinates projectCoordinates) {
+    return DirectlyDeclaredDependenciesParser.parse(getPom(projectCoordinates), Opt.of(projectCoordinates));
   }
 
   @Override
@@ -195,7 +195,7 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
   }
 
   @Override
-  public String getPom(final MavenCoordinates coordinates) {
+  public String getPom(final MavenCoordinates projectCoordinates) {
     // TODO context-free for now (Opt.empty()) - doesn't yet resolve an
     // artifact that lives only in a repository declared in some real
     // project's own pom.xml (a private/internal repository being the
@@ -203,7 +203,7 @@ public class DependencyAnalyserImpl implements DependencyAnalyser{
     // through the public DependencyAnalyser API that reaches it, is
     // still an open design question - see PomFetcher's own javadoc for
     // what context actually changes.
-    return new PomFetcher(Opt.empty()).fetchPomContent(coordinates);
+    return new PomFetcher(Opt.empty()).fetchPomContent(projectCoordinates);
   }
 
   @Override

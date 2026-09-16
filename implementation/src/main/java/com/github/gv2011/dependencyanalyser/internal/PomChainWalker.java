@@ -93,12 +93,12 @@ public final class PomChainWalker {
   }
 
   private static IList<PomStep> extend(
-    final IList<PomStep> path, final PomRelation relation, final MavenCoordinates coordinates
+    final IList<PomStep> path, final PomRelation relation, final MavenCoordinates projectCoordinates
   ) {
     return path.addElement(
       beanBuilder(PomStep.class)
         .set(PomStep::relation).to(relation)
-        .set(PomStep::coordinates).to(coordinates)
+        .set(PomStep::projectCoordinates).to(projectCoordinates)
         .build()
     );
   }
