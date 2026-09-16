@@ -28,13 +28,20 @@ public final class PomChainWalker {
   }
 
   /**
+   * @param declaration what this project's own text declares
+   * @param declaringProject the project whose own text {@code declaration}
+   *   came from - not carried by VersionDeclaration itself
+   */
+  public record Location(VersionDeclaration declaration, MavenCoordinates declaringProject) {}
+
+  /**
    * Every version declaration reachable from the leaf, keyed by
    * artifact - first one found wins (the leaf's own, then its parent
    * chain and BOM imports, depth-first).
    */
-  public Map<ArtifactIdentity, VersionDeclaration> declarationsReachableFrom(final Path leafDirectory) {
+  public Map<ArtifactIdentity, Location> declarationsReachableFrom(final Path leafDirectory) {
     final Project leaf = analyser.getProject(leafDirectory);
-    final Map<ArtifactIdentity, VersionDeclaration> result = new HashMap<>();
+    final Map<ArtifactIdentity, Location> result = new HashMap<>();
     walk(leaf, new HashSet<>(), result);
     return result;
   }
@@ -42,7 +49,7 @@ public final class PomChainWalker {
   private void walk(
     final Project project,
     final Set<MavenCoordinates> visited,
-    final Map<ArtifactIdentity, VersionDeclaration> result
+    final Map<ArtifactIdentity, Location> result
   ) {
     if(!visited.add(project.coordinates())) {
       return; // already walked - a BOM (or, wrongly, a parent) reached more than once
@@ -52,7 +59,7 @@ public final class PomChainWalker {
     // show every declaration found for a given artifact, not just the
     // first, and let the reader judge a real conflict themselves.
     for(final VersionDeclaration declaration: project.getVersionDeclarations()) {
-      result.putIfAbsent(declaration.artifact(), declaration);
+      result.putIfAbsent(declaration.artifact(), new Location(declaration, project.coordinates()));
     }
     for(final Dependency bom: project.boms()) {
       walk(analyser.getProject(bom.coordinates()), visited, result);
