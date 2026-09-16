@@ -49,25 +49,28 @@ public final class PomChainWalker {
     return result;
   }
 
+  /**
+   * @param current the project being visited at this step of the walk
+   */
   private void walk(
-    final Project project,
+    final Project current,
     final Set<MavenCoordinates> visited,
     final Map<ArtifactIdentity, LocatedDeclaration> result
   ) {
-    if(!visited.add(project.coordinates())) {
+    if(!visited.add(current.coordinates())) {
       return; // already walked - a BOM (or, wrongly, a parent) reached more than once
     }
     // TODO "first declaration found wins" is only a crude approximation
     // of Maven's real "nearest wins" precedence. Proper reporting should
     // show every declaration found for a given artifact, not just the
     // first, and let the reader judge a real conflict themselves.
-    for(final VersionDeclaration declaration: project.getVersionDeclarations()) {
-      result.putIfAbsent(declaration.artifact(), new LocatedDeclaration(declaration, project.coordinates()));
+    for(final VersionDeclaration declaration: current.getVersionDeclarations()) {
+      result.putIfAbsent(declaration.artifact(), new LocatedDeclaration(declaration, current.coordinates()));
     }
-    for(final Dependency bom: project.boms()) {
+    for(final Dependency bom: current.boms()) {
       walk(analyser.getProject(bom.coordinates()), visited, result);
     }
-    project.parent().ifPresentDo(parentCoordinates ->
+    current.parent().ifPresentDo(parentCoordinates ->
       walk(analyser.getProject(parentCoordinates), visited, result)
     );
   }
