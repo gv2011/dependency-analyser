@@ -8,6 +8,8 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 
+import org.apache.maven.model.Repository;
+
 import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenApi;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenApiResult;
@@ -30,7 +32,20 @@ public final class PomFetcher {
   private PomFetcher(){}
 
   public static String fetchPomContent(final MavenCoordinates coordinates) {
-    final Path projectDir = createThrowawayProject();
+    return fetchPomContent(coordinates, List.of());
+  }
+
+  /**
+   * @param repositories consulted in addition to whatever settings.xml
+   *   already configures globally - needed for an artifact that lives
+   *   only in a repository declared in some real project's own pom.xml
+   *   (a private/internal repository being the common case), which the
+   *   no-arg overload's repository-less throwaway project can't see.
+   */
+  public static String fetchPomContent(
+    final MavenCoordinates coordinates, final List<Repository> repositories
+  ) {
+    final Path projectDir = createThrowawayProject(repositories);
     try {
       final Path outputDir = createTempDir("pom-fetch-output-");
       try {
@@ -100,25 +115,44 @@ public final class PomFetcher {
     }
   }
 
-  private static final String MINIMAL_POM = """
+  private static final String MINIMAL_POM_HEADER = """
     <?xml version="1.0" encoding="UTF-8"?>
     <project xmlns="http://maven.apache.org/POM/4.0.0">
       <modelVersion>4.0.0</modelVersion>
       <groupId>com.github.gv2011.dependencyanalyser</groupId>
       <artifactId>pom-fetcher-throwaway</artifactId>
       <version>1</version>
-    </project>
     """;
 
-  private static Path createThrowawayProject() {
+  private static Path createThrowawayProject(final List<Repository> repositories) {
     final Path dir = createTempDir("pom-fetch-project-");
     try {
-      Files.writeString(dir.resolve("pom.xml"), MINIMAL_POM, StandardCharsets.UTF_8);
+      Files.writeString(dir.resolve("pom.xml"), buildPom(repositories), StandardCharsets.UTF_8);
     }
     catch(final IOException e) {
       throw new UncheckedIOException(e);
     }
     return dir;
+  }
+
+  private static String buildPom(final List<Repository> repositories) {
+    final StringBuilder pom = new StringBuilder(MINIMAL_POM_HEADER);
+    if(!repositories.isEmpty()) {
+      pom.append("  <repositories>\n");
+      for(final Repository r: repositories) {
+        pom.append("    <repository>\n")
+          .append("      <id>").append(xmlEscape(r.getId())).append("</id>\n")
+          .append("      <url>").append(xmlEscape(r.getUrl())).append("</url>\n")
+          .append("    </repository>\n");
+      }
+      pom.append("  </repositories>\n");
+    }
+    pom.append("</project>\n");
+    return pom.toString();
+  }
+
+  private static String xmlEscape(final String s) {
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
   }
 
   private static Path createTempDir(final String prefix) {

@@ -5,12 +5,15 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Parent;
 import org.apache.maven.model.Repository;
 import org.apache.maven.model.building.FileModelSource;
 import org.apache.maven.model.building.ModelSource;
+import org.apache.maven.model.building.ModelSource2;
 import org.apache.maven.model.resolution.InvalidRepositoryException;
 import org.apache.maven.model.resolution.ModelResolver;
 import org.apache.maven.model.resolution.UnresolvableModelException;
@@ -22,11 +25,33 @@ import org.apache.maven.model.resolution.UnresolvableModelException;
  * working fetch mechanism - rather than wiring a full RepositorySystem-
  * based resolver from scratch.
  *
- * <p>addRepository(...) is a deliberate no-op: PomFetcher resolves via a
- * real embedded Maven invocation that reads settings.xml/repositories
- * itself, so this resolver has no repository list of its own to add to.
+ * <p>Stateful, as {@link ModelResolver}'s own contract requires: as the
+ * model builder reads each level of the parent chain, it calls
+ * addRepository(...) with whatever that level's own pom declares, before
+ * asking this resolver to fetch the next level - the same accumulation
+ * a real Maven build does. Repositories collected so far are passed to
+ * every subsequent fetch, so an artifact living only in a repository
+ * declared partway up the chain (a private/internal one, typically) is
+ * still visible once that declaration has been read.
  */
 final class BridgingModelResolver implements ModelResolver {
+
+  private final List<Repository> repositories;
+
+  BridgingModelResolver() {
+    this(new ArrayList<>());
+  }
+
+  private BridgingModelResolver(final List<Repository> repositories) {
+    this.repositories = repositories;
+  }
+
+  // ModelSource itself is deprecated in favor of ModelSource2 (its
+  // javadoc says so directly), but the three overrides below can't use
+  // the replacement - ModelResolver's own interface declares ModelSource
+  // as their return type, not something this class controls. fetch(...)
+  // returns the non-deprecated ModelSource2 instead; ModelSource2 extends
+  // ModelSource, so it still satisfies the overrides.
 
   @Override
   public ModelSource resolveModel(final String groupId, final String artifactId, final String version)
@@ -45,13 +70,13 @@ final class BridgingModelResolver implements ModelResolver {
     return fetch(dependency.getGroupId(), dependency.getArtifactId(), dependency.getVersion());
   }
 
-  private ModelSource fetch(final String groupId, final String artifactId, final String version)
+  private ModelSource2 fetch(final String groupId, final String artifactId, final String version)
     throws UnresolvableModelException
   {
     final String pomContent;
     try {
       pomContent = PomFetcher.fetchPomContent(
-        Conversions.toMavenCoordinates(groupId, artifactId, version, "pom")
+        Conversions.toMavenCoordinates(groupId, artifactId, version, "pom"), repositories
       );
     }
     catch(final RuntimeException e) {
@@ -72,19 +97,29 @@ final class BridgingModelResolver implements ModelResolver {
 
   @Override
   public void addRepository(final Repository repository) throws InvalidRepositoryException {
-    // no-op - see class javadoc
+    addRepository(repository, false);
   }
 
   @Override
   public void addRepository(final Repository repository, final boolean replace)
     throws InvalidRepositoryException
   {
-    // no-op - see class javadoc
+    if(replace) {
+      repositories.removeIf(r -> r.getId().equals(repository.getId()));
+    }
+    else if(repositories.stream().anyMatch(r -> r.getId().equals(repository.getId()))) {
+      return; // already present, not replacing - keep the existing one
+    }
+    repositories.add(repository);
   }
 
   @Override
   public ModelResolver newCopy() {
-    return new BridgingModelResolver();
+    // A genuine copy, not a shared reference: newCopy() exists so a
+    // caller can branch the resolver's state (e.g. per BOM import) -
+    // further addRepository(...) calls on the copy must not leak back
+    // into this instance's own list.
+    return new BridgingModelResolver(new ArrayList<>(repositories));
   }
 
 }
