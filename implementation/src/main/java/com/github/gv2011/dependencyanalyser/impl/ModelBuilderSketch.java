@@ -58,7 +58,11 @@ final class ModelBuilderSketch {
     final DefaultModelBuildingRequest request = new DefaultModelBuildingRequest();
     request.setPomFile(pomFile);
     request.setModelResolver(resolver);
-    request.setSystemProperties(new Properties());
+    // Real system properties, not an empty Properties() - profile
+    // activation (<activation><jdk>...) needs java.version/os.name/etc.
+    // to evaluate at all; an empty map makes every such profile fail to
+    // activate deterministically, not just when it happens to matter.
+    request.setSystemProperties(System.getProperties());
     request.setValidationLevel(ModelBuildingRequest.VALIDATION_LEVEL_MINIMAL);
     request.setProcessPlugins(false);
     request.setTwoPhaseBuilding(twoPhaseBuilding);
