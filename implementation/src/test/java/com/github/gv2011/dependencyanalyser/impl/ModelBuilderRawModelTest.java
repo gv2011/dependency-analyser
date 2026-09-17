@@ -1,43 +1,35 @@
 package com.github.gv2011.dependencyanalyser.impl;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
+import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Model;
-import org.apache.maven.model.building.DefaultModelBuilderFactory;
-import org.apache.maven.model.building.DefaultModelBuildingRequest;
-import org.apache.maven.model.building.ModelBuildingRequest;
-import org.apache.maven.model.building.ModelBuildingResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * NOT YET RUN (no compiler/JVM-with-Maven-deps available while writing
- * this). Purpose: answer the open question from ModelBuilderSketch - does
- * ModelBuildingResult's raw model show a scope=import dependencyManagement
- * entry with its version already interpolated (property resolved), i.e.
- * a state that is neither pure-raw-text nor fully-effective?
+ * Confirms, against real Maven model-building (not just source reading),
+ * that ModelBuildingRequest.setTwoPhaseBuilding(true) gives an interim
+ * model that is interpolated (property placeholders resolved) but has
+ * NOT yet had its dependencyManagement imports merged - the one state
+ * that shows a BOM import as itself, with a real, usable version.
  *
- * child's parent is found via relativePath (no ModelResolver needed for
- * that lookup) - avoids needing a real repository/resolver just to test
- * this one question. The BOM being imported is NOT a real artifact
- * anywhere, so the build may fail once/if it tries to actually resolve
- * that import - which raw-model method to call (see TODO below) and
- * whether that failure happens before or after raw-model access is
- * itself part of what this test should reveal.
- *
- * FIRST RUN: just read the console output, don't trust the (currently
- * absent) assertions - the exact API here (getRawModel() vs
- * getRawModel(String), whether build() throws before returning a usable
- * result at all) is unconfirmed. Once the actual output is seen, replace
- * the printlns with real assertions.
+ * <p>parent is found via relativePath, so no ModelResolver capable of
+ * fetching anything is needed here - the imported BOM (not a real
+ * artifact) is never actually resolved, since that step (phase 2) is
+ * exactly what this test skips.
  */
 class ModelBuilderRawModelTest {
 
   @Test
-  void rawModelInterpolatedButImportNotYetMerged(@TempDir final Path dir) throws IOException {
+  void interimModelIsInterpolatedButImportNotYetMerged(@TempDir final Path dir) throws IOException {
     Files.writeString(dir.resolve("parent-pom.xml"), """
       <?xml version="1.0" encoding="UTF-8"?>
       <project xmlns="http://maven.apache.org/POM/4.0.0">
@@ -77,47 +69,15 @@ class ModelBuilderRawModelTest {
       </project>
       """, StandardCharsets.UTF_8);
 
-    final DefaultModelBuildingRequest request = new DefaultModelBuildingRequest();
-    request.setPomFile(dir.resolve("child-pom.xml").toFile());
-    request.setValidationLevel(ModelBuildingRequest.VALIDATION_LEVEL_MINIMAL);
-    request.setProcessPlugins(false);
-    // No ModelResolver set - relativePath resolves the parent without
-    // one. If the build needs a resolver once it tries to actually
-    // process the (non-existent) imported BOM, that's expected to
-    // surface as a failure at some point - see try/catch below.
+    final Model interim = ModelBuilderSketch.buildInterimModel(dir.resolve("child-pom.xml").toFile(), null);
 
-    ModelBuildingResult result = null;
-    try {
-      result = new DefaultModelBuilderFactory().newInstance().build(request);
-    }
-    catch(final Exception e) {
-      // Don't swallow - print how far it got. A failure here is itself
-      // informative (e.g. "requires a ModelResolver" tells us raw-model
-      // access needs the full pipeline to at least attempt resolution).
-      e.printStackTrace();
-    }
+    final List<Dependency> managed = interim.getDependencyManagement().getDependencies();
+    assertThat("expected exactly the one BOM entry, unmerged", managed.size(), is(1));
 
-    if(result!=null) {
-      // TODO confirm exact method: getRawModel() vs getRawModel(String modelId)
-      final Model raw = result.getRawModel();
-      System.out.println("=== raw model dependencyManagement ===");
-      if(raw.getDependencyManagement()==null) {
-        System.out.println("(null - dependencyManagement not present on raw model)");
-      }
-      else {
-        raw.getDependencyManagement().getDependencies().forEach(d ->
-          System.out.println(
-            d.getGroupId() + ":" + d.getArtifactId() + ":" + d.getVersion() + " scope=" + d.getScope()
-          )
-        );
-      }
-    }
-
-    // Intentionally no assertions yet - run this, read the console
-    // output above, THEN write real assertions against what actually
-    // comes back (expected if the hypothesis holds: one dependency,
-    // version "9.9.9" (interpolated, not "${bom.version}"), scope
-    // "import" (not yet replaced)).
+    final Dependency bom = managed.get(0);
+    assertThat(bom.getArtifactId(), is("some-bom"));
+    assertThat("scope=import must still be present, not yet replaced", bom.getScope(), is("import"));
+    assertThat("property must already be interpolated to a real version", bom.getVersion(), is("9.9.9"));
   }
 
 }
