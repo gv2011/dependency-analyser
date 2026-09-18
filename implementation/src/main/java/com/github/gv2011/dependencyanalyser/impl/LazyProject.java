@@ -7,6 +7,7 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Locale;
 
 import org.apache.maven.model.Model;
@@ -16,8 +17,10 @@ import com.github.gv2011.dependencyanalyser.api.Dependency;
 import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
 import com.github.gv2011.dependencyanalyser.api.MavenScope;
 import com.github.gv2011.dependencyanalyser.api.Project;
+import com.github.gv2011.dependencyanalyser.api.Repository;
 import com.github.gv2011.dependencyanalyser.api.VersionDeclaration;
 import com.github.gv2011.util.icol.ICollections;
+import com.github.gv2011.util.icol.IList;
 import com.github.gv2011.util.icol.ISet;
 import com.github.gv2011.util.icol.Opt;
 
@@ -25,44 +28,68 @@ import com.github.gv2011.util.icol.Opt;
  * Hand-written Project implementation - deliberately not Bean-proxied,
  * see Project's own javadoc for why. Backed by three independently
  * lazy, memoized (via {@link Lazy}) computations, not five: the
- * effective model build backs coordinates()/parent()/dependencies()
- * together (they're all read from the one Model), the interim model
- * build backs boms() alone (see ModelBuilderSketch for why that has to
- * be a separate build), and a raw text parse backs
- * getVersionDeclarations() alone. A caller that only ever calls
- * parent(), say, triggers the effective-model build and nothing else -
- * never the interim build, never the raw parse.
+ * effective model build backs coordinates()/additionalRepositories()/
+ * parent()/dependencies() together (they're all read from the one
+ * build - additionalRepositories() specifically from the resolver that
+ * build used, not the Model itself), the interim model build backs
+ * boms() alone (see ModelBuilderSketch for why that has to be a
+ * separate build), and a raw text parse backs getVersionDeclarations()
+ * alone. A caller that only ever calls parent(), say, triggers the
+ * effective-model build and nothing else - never the interim build,
+ * never the raw parse.
  *
  * <p>Thread-safe: each of the three computations is memoized via Lazy.
  */
 final class LazyProject implements Project {
 
   private final String pomContent;
-  private final Lazy<Model> effectiveModel;
+  private final List<org.apache.maven.model.Repository> seedRepositories;
+  private final Lazy<EffectiveBuild> effectiveBuild;
   private final Lazy<Model> interimModel;
   private final Lazy<ISet<VersionDeclaration>> versionDeclarations;
 
-  LazyProject(final String pomContent) {
+  /**
+   * @param additionalRepositories seeded into the model build - repositories
+   *   already known before this project's own text is even read (typically:
+   *   what the referring project in an ongoing walk had already
+   *   accumulated). See DependencyAnalyser.getProject's own javadoc.
+   */
+  LazyProject(final String pomContent, final IList<Repository> additionalRepositories) {
     this.pomContent = pomContent;
     // Assigned here, not as field initializers: field initializers run
     // top-to-bottom before the constructor body, so a lambda in an
     // earlier one referencing pomContent (assigned only below) isn't
     // provably initialized yet at that point - a real compile error,
     // not a style choice.
-    this.effectiveModel = new Lazy<>(() -> buildModel(false));
-    this.interimModel = new Lazy<>(() -> buildModel(true));
+    this.seedRepositories = Conversions.toMavenRepositories(additionalRepositories);
+    this.effectiveBuild = new Lazy<>(this::buildEffective);
+    this.interimModel = new Lazy<>(this::buildInterim);
     this.versionDeclarations = new Lazy<>(() -> RawVersionDeclarations.read(this.pomContent));
   }
 
+  /**
+   * @param repositories what the resolver used for this build ended up
+   *   with - the seed plus whatever this project's own text (and its
+   *   parent chain) contributed. Not the same thing as reading
+   *   Model.getRepositories() directly, which would only show this one
+   *   project's own <repositories> element, not the accumulated result.
+   */
+  private record EffectiveBuild(Model model, List<org.apache.maven.model.Repository> repositories) {}
+
   @Override
   public MavenCoordinates coordinates() {
-    final Model m = effectiveModel.get();
+    final Model m = effectiveBuild.get().model();
     return Conversions.toMavenCoordinates(m.getGroupId(), m.getArtifactId(), m.getVersion(), packaging(m));
   }
 
   @Override
+  public IList<Repository> additionalRepositories() {
+    return Conversions.toRepositories(effectiveBuild.get().repositories());
+  }
+
+  @Override
   public Opt<MavenCoordinates> parent() {
-    final Parent p = effectiveModel.get().getParent();
+    final Parent p = effectiveBuild.get().model().getParent();
     return Opt.ofNullable(p).map(pp ->
       Conversions.toMavenCoordinates(pp.getGroupId(), pp.getArtifactId(), pp.getVersion(), "pom")
     );
@@ -92,7 +119,7 @@ final class LazyProject implements Project {
   @Override
   public ISet<Dependency> dependencies() {
     final ISet.Builder<Dependency> result = ICollections.setBuilder();
-    effectiveModel.get().getDependencies().forEach(d -> result.add(
+    effectiveBuild.get().model().getDependencies().forEach(d -> result.add(
       toDependency(d.getGroupId(), d.getArtifactId(), d.getVersion(), d.getType(), scopeOf(d.getScope()))
     ));
     return result.build();
@@ -103,25 +130,34 @@ final class LazyProject implements Project {
     return versionDeclarations.get();
   }
 
-  /**
-   * Each call writes pomContent to its own fresh, short-lived temp file
-   * - ModelBuilderSketch needs a real File, and pomContent might have
-   * come from a fetch (getProject(MavenCoordinates)), not an existing
-   * one on disk. Deleted right after the build; nothing lingers.
-   */
-  private Model buildModel(final boolean interim) {
+  private EffectiveBuild buildEffective() {
     final Path tempFile = createTempPomFile();
     try {
-      return interim
-        ? ModelBuilderSketch.buildInterimModel(tempFile.toFile(), new BridgingModelResolver())
-        : ModelBuilderSketch.buildEffectiveModel(tempFile.toFile(), new BridgingModelResolver())
-      ;
+      final BridgingModelResolver resolver = new BridgingModelResolver(seedRepositories);
+      final Model model = ModelBuilderSketch.buildEffectiveModel(tempFile.toFile(), resolver);
+      return new EffectiveBuild(model, resolver.repositories());
     }
     finally {
       deleteQuietly(tempFile);
     }
   }
 
+  private Model buildInterim() {
+    final Path tempFile = createTempPomFile();
+    try {
+      return ModelBuilderSketch.buildInterimModel(tempFile.toFile(), new BridgingModelResolver(seedRepositories));
+    }
+    finally {
+      deleteQuietly(tempFile);
+    }
+  }
+
+  /**
+   * Each call writes pomContent to its own fresh, short-lived temp file
+   * - ModelBuilderSketch needs a real File, and pomContent might have
+   * come from a fetch (getProject(MavenCoordinates)), not an existing
+   * one on disk. Deleted right after the build; nothing lingers.
+   */
   private Path createTempPomFile() {
     try {
       final Path file = Files.createTempFile("project-pom-", ".xml");

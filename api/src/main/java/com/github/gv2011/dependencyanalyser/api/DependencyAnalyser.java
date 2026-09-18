@@ -24,11 +24,19 @@ public interface DependencyAnalyser {
     return ServiceLoader.load(DependencyAnalyser.class).findFirst().get();
   }
 
+  /**
+   * @param additionalRepositories repositories to search in addition to
+   *   whatever this project's own text (and its parent chain) declares.
+   *   Typically {@link Project#additionalRepositories()} from whichever
+   *   project referenced this one - see that method's own javadoc.
+   *   Central is always searched too, automatically; do not include it
+   *   here.
+   */
   Project getProject(Path projectDirectory, IList<Repository> additionalRepositories);
 
   /**
-   * @param repositories Central is automatically appended to the list internally and must not be contained in
-   * additionalRepositories.
+   * @param additionalRepositories see the other {@code getProject}
+   *   overload - same meaning here.
    */
   Project getProject(MavenCoordinates projectCoordinates, IList<Repository> additionalRepositories);
 

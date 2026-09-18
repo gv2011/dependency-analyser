@@ -38,12 +38,24 @@ final class BridgingModelResolver implements ModelResolver {
 
   private final List<Repository> repositories;
 
-  BridgingModelResolver() {
-    this(new ArrayList<>());
+  /**
+   * @param seed repositories already known before this resolver starts -
+   *   e.g. what an earlier project in the same walk (a referring
+   *   project) had accumulated. Copied, not held by reference: further
+   *   addRepository(...) calls mutate this resolver's own list only.
+   */
+  BridgingModelResolver(final List<Repository> seed) {
+    this.repositories = new ArrayList<>(seed);
   }
 
-  private BridgingModelResolver(final List<Repository> repositories) {
-    this.repositories = repositories;
+  /**
+   * Everything known to this resolver right now - the seed it was given
+   * plus whatever addRepository(...) has added since. Read after a
+   * build completes to find out what that build's own project (and
+   * whatever it inherited) actually declared.
+   */
+  List<Repository> repositories() {
+    return List.copyOf(repositories);
   }
 
   // ModelSource itself is deprecated in favor of ModelSource2 (its
@@ -118,8 +130,9 @@ final class BridgingModelResolver implements ModelResolver {
     // A genuine copy, not a shared reference: newCopy() exists so a
     // caller can branch the resolver's state (e.g. per BOM import) -
     // further addRepository(...) calls on the copy must not leak back
-    // into this instance's own list.
-    return new BridgingModelResolver(new ArrayList<>(repositories));
+    // into this instance's own list. The constructor already copies its
+    // seed, so passing repositories directly here is enough.
+    return new BridgingModelResolver(repositories);
   }
 
 }

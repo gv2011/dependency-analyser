@@ -16,6 +16,8 @@ import com.github.gv2011.dependencyanalyser.api.Dependency;
 import com.github.gv2011.dependencyanalyser.api.DependencyAnalyser;
 import com.github.gv2011.dependencyanalyser.api.MavenScope;
 import com.github.gv2011.dependencyanalyser.api.Project;
+import com.github.gv2011.dependencyanalyser.api.Repository;
+import com.github.gv2011.util.icol.ICollections;
 
 class DependencyAnalyserImplTest {
 
@@ -50,7 +52,7 @@ class DependencyAnalyserImplTest {
       </project>
       """, StandardCharsets.UTF_8);
 
-    final Project project = new DependencyAnalyserImpl().getProject(dir);
+    final Project project = new DependencyAnalyserImpl().getProject(dir, ICollections.<Repository>listBuilder().build());
 
     assertThat(project.coordinates().identity().groupId(), is("com.example"));
     assertThat(project.coordinates().identity().artifactId(), is("simple"));
@@ -149,7 +151,7 @@ class DependencyAnalyserImplTest {
       </project>
       """, StandardCharsets.UTF_8);
 
-    final Project project = new DependencyAnalyserImpl().getProject(dir);
+    final Project project = new DependencyAnalyserImpl().getProject(dir, ICollections.<Repository>listBuilder().build());
 
     final Dependency material3 = project.dependencies().stream()
       .filter(d -> d.coordinates().identity().artifactId().equals("material3"))

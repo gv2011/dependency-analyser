@@ -17,7 +17,14 @@ public interface Project {
   MavenCoordinates coordinates();
 
   /**
-   * @return list of repositories Maven searches for an artifact. Central is always used last and is not included here.
+   * List of repositories Maven searches for an artifact. Central is
+   * always used last and is not included here.
+   *
+   * <p>Pass this straight into the next {@code getProject(...)} call
+   * when resolving something this project references (its parent, a
+   * BOM). It already includes everything this project itself declares,
+   * on top of whatever was passed in when this Project was created - so
+   * there is nothing left to add yourself.
    */
   IList<Repository> additionalRepositories();
 

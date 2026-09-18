@@ -8,6 +8,7 @@ import com.github.gv2011.dependencyanalyser.api.Dependency;
 import com.github.gv2011.dependencyanalyser.api.DependencyAnalyser;
 import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
 import com.github.gv2011.dependencyanalyser.api.Project;
+import com.github.gv2011.dependencyanalyser.api.Repository;
 import com.github.gv2011.dependencyanalyser.api.VersionDeclaration;
 import com.github.gv2011.util.icol.ICollections;
 import com.github.gv2011.util.icol.ISet;
@@ -36,7 +37,7 @@ public final class VersionDeclarationsReader {
    * @return the version declarations of the given project, both locally declared and inherited.
    */
   public ISet<LocatedDeclaration> getVersionDeclarations(final Path projectDirectory) {
-    final Project project = analyser.getProject(projectDirectory);
+    final Project project = analyser.getProject(projectDirectory, ICollections.<Repository>listBuilder().build());
     final Builder<LocatedDeclaration> collectedLocations = ICollections.setBuilder();
     final Set<MavenCoordinates> doneProjects = new HashSet<>();
     getVersionDeclarations(project, doneProjects, collectedLocations);
@@ -55,11 +56,20 @@ public final class VersionDeclarationsReader {
       for(final VersionDeclaration declaration: project.getVersionDeclarations()) {
         collectedLocations.add(new LocatedDeclaration(project.coordinates(), declaration));
       }
+      // additionalRepositories() already covers what this project itself
+      // declares, on top of what was seeded in - see its own javadoc.
+      // Passing it straight on is what keeps repository knowledge
+      // flowing forward along this one branch of the walk, without
+      // leaking sideways to a sibling.
       for(final Dependency bom: project.boms()) {
-        getVersionDeclarations(analyser.getProject(bom.coordinates()), doneProjects, collectedLocations);
+        getVersionDeclarations(
+          analyser.getProject(bom.coordinates(), project.additionalRepositories()), doneProjects, collectedLocations
+        );
       }
       project.parent().ifPresentDo(parentCoordinates ->
-        getVersionDeclarations(analyser.getProject(parentCoordinates), doneProjects, collectedLocations)
+        getVersionDeclarations(
+          analyser.getProject(parentCoordinates, project.additionalRepositories()), doneProjects, collectedLocations
+        )
       );
     }
   }
