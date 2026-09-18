@@ -74,37 +74,45 @@ class DependencyAnalyserImplTest {
   /**
    * Real-world case for the repository-propagation fix
    * (BridgingModelResolver.addRepository): a child pom that declares its
-   * own &lt;repositories&gt; entry, whose &lt;parent&gt; only resolves
+   * own &lt;repositories&gt; entry, whose imported BOM only resolves
    * through that declared repository - not Central, not any default.
    *
-   * <p>Uses dilbertside/bom (github.com/dilbertside/bom, artifact
-   * com.github.dilbertside:bom:5.2.4) as the parent target - a real,
-   * public "Bill of Materials" project, genuinely packaging=pom (unlike
-   * an earlier attempt using jitpack/maven-simple, a plain jar example
-   * that failed Maven's own "parent must be packaging=pom" validation -
-   * that failure happened AFTER our resolver had already found and read
-   * the pom via the declared repository, confirming the fix itself
-   * worked; it was purely the wrong choice of target artifact).
+   * <p>More representative of the original bug report than an earlier
+   * attempt at this test (parent-based, using dilbertside/bom via
+   * JitPack): that report's actual symptom was missing versions across
+   * many Spring Boot artifacts, almost certainly a BOM-import problem,
+   * not a parent-resolution one. BOM-import resolution only happens
+   * during the effective model build (dependencies()) -
+   * ModelBuilderSketch.buildInterimModel deliberately stops before that
+   * step, so boms() alone never actually fetches the imported pom at
+   * all, just reads the raw reference. This test exercises dependencies()
+   * specifically, the path that does.
    *
-   * <p>relativePath is set empty deliberately, to force resolution
-   * through the declared repository rather than a filesystem lookup.
+   * <p>Uses androidx.compose:compose-bom:2023.10.00, genuinely hosted at
+   * Google's Maven repository (maven.google.com, confirmed via
+   * mvnrepository.com's own "located at Google repository" note) - not
+   * part of Maven's default resolution, so it needs the same explicit
+   * repository declaration a private/internal repository would. Chosen
+   * over the earlier JitPack-based target specifically for
+   * immutability: Google's Maven repository hosts artifacts published
+   * through a real release process, the same operating model Central
+   * uses - not JitPack's build-on-demand-per-request model, whose
+   * public artifacts are only immutable 7 days after publishing (own
+   * documented policy, not an infrastructure guarantee) and have a
+   * documented failure mode where a cache-evicted, never-rebuildable
+   * (source archived) artifact becomes permanently unresolvable.
    *
-   * <p>Version 5.2.4 specifically, not a newer one: confirmed via
-   * mvnrepository.com's own index of versions JitPack actually built
-   * and published successfully. An earlier attempt used 5.3.1 - taken
-   * from JitPack's auto-generated usage-instructions page, which
-   * reflects the repo's latest tag/description, not confirmation that
-   * version was ever actually built - and 5.3.1 doesn't appear in
-   * mvnrepository's index at all. Requesting a never-built version
-   * triggers JitPack's build-on-demand system live, during the test
-   * run, which can take a very long time or never complete - almost
-   * certainly what actually happened.
+   * <p>material3's exact managed version isn't asserted - only that
+   * compose-bom's import resolved it to a real, non-empty version at
+   * all, which is what the repository-propagation fix enables; hard-coding
+   * the exact pinned version would make this fragile against a future
+   * compose-bom update without testing anything more meaningful.
    *
-   * <p>Needs real network access to jitpack.io and Central - "ordinary
-   * connected Maven use", same standard already applied elsewhere in
-   * this project (e.g. PomFetcherTest): not special setup, works
-   * offline after the first connected run. See PR26 for why that keeps
-   * this a Test, not an *IT.
+   * <p>Needs real network access to maven.google.com and Central -
+   * "ordinary connected Maven use", same standard already applied
+   * elsewhere in this project (e.g. PomFetcherTest): not special setup,
+   * works offline after the first connected run. See PR26 for why that
+   * keeps this a Test, not an *IT.
    */
   @Test
   void getProjectOfChildDeclaringRepositoryTest(@TempDir final Path dir) throws IOException {
@@ -112,28 +120,49 @@ class DependencyAnalyserImplTest {
       <?xml version="1.0" encoding="UTF-8"?>
       <project xmlns="http://maven.apache.org/POM/4.0.0">
         <modelVersion>4.0.0</modelVersion>
-        <parent>
-          <groupId>com.github.dilbertside</groupId>
-          <artifactId>bom</artifactId>
-          <version>5.2.4</version>
-          <relativePath/>
-        </parent>
-        <artifactId>uses-jitpack-parent</artifactId>
+        <groupId>com.example</groupId>
+        <artifactId>uses-google-maven-bom</artifactId>
+        <version>1.0</version>
         <repositories>
           <repository>
-            <id>jitpack.io</id>
-            <url>https://jitpack.io</url>
+            <id>google</id>
+            <url>https://maven.google.com</url>
           </repository>
         </repositories>
+        <dependencyManagement>
+          <dependencies>
+            <dependency>
+              <groupId>androidx.compose</groupId>
+              <artifactId>compose-bom</artifactId>
+              <version>2023.10.00</version>
+              <type>pom</type>
+              <scope>import</scope>
+            </dependency>
+          </dependencies>
+        </dependencyManagement>
+        <dependencies>
+          <dependency>
+            <groupId>androidx.compose.material3</groupId>
+            <artifactId>material3</artifactId>
+          </dependency>
+        </dependencies>
       </project>
       """, StandardCharsets.UTF_8);
 
     final Project project = new DependencyAnalyserImpl().getProject(dir);
 
-    assertThat("parent should resolve via the child's own declared repository", project.parent().isPresent(), is(true));
-    assertThat(project.parent().get().identity().groupId(), is("com.github.dilbertside"));
-    assertThat(project.parent().get().identity().artifactId(), is("bom"));
-    assertThat(project.parent().get().version().toString(), is("5.2.4"));
+    final Dependency material3 = project.dependencies().stream()
+      .filter(d -> d.coordinates().identity().artifactId().equals("material3"))
+      .tryFindFirst()
+      .orElseThrow(() -> new AssertionError(
+        "expected material3 among effective dependencies - the BOM import likely failed to resolve"
+      ))
+    ;
+    assertThat(
+      "material3's version should have been supplied by the imported BOM",
+      material3.coordinates().version().toString().isBlank(),
+      is(false)
+    );
   }
 
 }
