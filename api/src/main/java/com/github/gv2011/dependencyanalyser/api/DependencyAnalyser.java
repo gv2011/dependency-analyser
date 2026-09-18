@@ -1,5 +1,6 @@
 package com.github.gv2011.dependencyanalyser.api;
 
+import java.nio.file.Path;
 import java.util.NoSuchElementException;
 import java.util.ServiceLoader;
 
@@ -21,7 +22,9 @@ public interface DependencyAnalyser {
     return ServiceLoader.load(DependencyAnalyser.class).findFirst().get();
   }
 
-  Context createContext();
+  Project getProject(Path projectDirectory);
+
+  Project getProject(MavenCoordinates projectCoordinates);
 
   Version parseVersion(String version);
 
