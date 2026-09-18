@@ -38,14 +38,20 @@ import com.github.gv2011.util.icol.Opt;
 final class LazyProject implements Project {
 
   private final String pomContent;
-  private final Lazy<Model> effectiveModel = new Lazy<>(() -> buildModel(false));
-  private final Lazy<Model> interimModel = new Lazy<>(() -> buildModel(true));
-  private final Lazy<ISet<VersionDeclaration>> versionDeclarations =
-    new Lazy<>(() -> RawVersionDeclarations.read(pomContent))
-  ;
+  private final Lazy<Model> effectiveModel;
+  private final Lazy<Model> interimModel;
+  private final Lazy<ISet<VersionDeclaration>> versionDeclarations;
 
   LazyProject(final String pomContent) {
     this.pomContent = pomContent;
+    // Assigned here, not as field initializers: field initializers run
+    // top-to-bottom before the constructor body, so a lambda in an
+    // earlier one referencing pomContent (assigned only below) isn't
+    // provably initialized yet at that point - a real compile error,
+    // not a style choice.
+    this.effectiveModel = new Lazy<>(() -> buildModel(false));
+    this.interimModel = new Lazy<>(() -> buildModel(true));
+    this.versionDeclarations = new Lazy<>(() -> RawVersionDeclarations.read(this.pomContent));
   }
 
   @Override
