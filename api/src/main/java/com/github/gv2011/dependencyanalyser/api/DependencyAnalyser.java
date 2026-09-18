@@ -4,6 +4,8 @@ import java.nio.file.Path;
 import java.util.NoSuchElementException;
 import java.util.ServiceLoader;
 
+import com.github.gv2011.util.icol.IList;
+
 /**
  * Entry point for analysing a Maven project already checked out on disk.
  *
@@ -22,10 +24,16 @@ public interface DependencyAnalyser {
     return ServiceLoader.load(DependencyAnalyser.class).findFirst().get();
   }
 
-  Project getProject(Path projectDirectory);
+  Project getProject(Path projectDirectory, IList<Repository> additionalRepositories);
 
-  Project getProject(MavenCoordinates projectCoordinates);
+  /**
+   * @param repositories Central is automatically appended to the list internally and must not be contained in
+   * additionalRepositories.
+   */
+  Project getProject(MavenCoordinates projectCoordinates, IList<Repository> additionalRepositories);
 
   Version parseVersion(String version);
+
+  RepositoryId parseRepositoryId(String repositoryId);
 
 }

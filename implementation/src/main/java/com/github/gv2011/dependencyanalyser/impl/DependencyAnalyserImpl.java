@@ -9,7 +9,9 @@ import java.nio.file.Path;
 import com.github.gv2011.dependencyanalyser.api.DependencyAnalyser;
 import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
 import com.github.gv2011.dependencyanalyser.api.Project;
+import com.github.gv2011.dependencyanalyser.api.RepositoryId;
 import com.github.gv2011.dependencyanalyser.api.Version;
+import com.github.gv2011.util.tstr.TypedString;
 
 public class DependencyAnalyserImpl implements DependencyAnalyser {
 
@@ -33,6 +35,11 @@ public class DependencyAnalyserImpl implements DependencyAnalyser {
   @Override
   public Version parseVersion(final String version) {
     return VersionImpl.parse(version);
+  }
+
+  @Override
+  public RepositoryId parseRepositoryId(final String repositoryId) {
+    return TypedString.create(RepositoryId.class, repositoryId);
   }
 
 }
