@@ -78,7 +78,7 @@ class DependencyAnalyserImplTest {
    * through that declared repository - not Central, not any default.
    *
    * <p>Uses dilbertside/bom (github.com/dilbertside/bom, artifact
-   * com.github.dilbertside:bom:5.3.1) as the parent target - a real,
+   * com.github.dilbertside:bom:5.2.4) as the parent target - a real,
    * public "Bill of Materials" project, genuinely packaging=pom (unlike
    * an earlier attempt using jitpack/maven-simple, a plain jar example
    * that failed Maven's own "parent must be packaging=pom" validation -
@@ -88,6 +88,17 @@ class DependencyAnalyserImplTest {
    *
    * <p>relativePath is set empty deliberately, to force resolution
    * through the declared repository rather than a filesystem lookup.
+   *
+   * <p>Version 5.2.4 specifically, not a newer one: confirmed via
+   * mvnrepository.com's own index of versions JitPack actually built
+   * and published successfully. An earlier attempt used 5.3.1 - taken
+   * from JitPack's auto-generated usage-instructions page, which
+   * reflects the repo's latest tag/description, not confirmation that
+   * version was ever actually built - and 5.3.1 doesn't appear in
+   * mvnrepository's index at all. Requesting a never-built version
+   * triggers JitPack's build-on-demand system live, during the test
+   * run, which can take a very long time or never complete - almost
+   * certainly what actually happened.
    *
    * <p>Needs real network access to jitpack.io and Central - "ordinary
    * connected Maven use", same standard already applied elsewhere in
@@ -104,7 +115,7 @@ class DependencyAnalyserImplTest {
         <parent>
           <groupId>com.github.dilbertside</groupId>
           <artifactId>bom</artifactId>
-          <version>5.3.1</version>
+          <version>5.2.4</version>
           <relativePath/>
         </parent>
         <artifactId>uses-jitpack-parent</artifactId>
@@ -122,7 +133,7 @@ class DependencyAnalyserImplTest {
     assertThat("parent should resolve via the child's own declared repository", project.parent().isPresent(), is(true));
     assertThat(project.parent().get().identity().groupId(), is("com.github.dilbertside"));
     assertThat(project.parent().get().identity().artifactId(), is("bom"));
-    assertThat(project.parent().get().version().toString(), is("5.3.1"));
+    assertThat(project.parent().get().version().toString(), is("5.2.4"));
   }
 
 }
