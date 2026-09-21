@@ -1,6 +1,7 @@
 package com.github.gv2011.dependencyanalyser.impl;
 
 import static com.github.gv2011.util.BeanUtils.beanBuilder;
+import static com.github.gv2011.util.ex.Exceptions.notYetImplemented;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.io.IOException;
@@ -8,8 +9,8 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Locale;
+import java.util.function.Function;
 
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Parent;
@@ -47,7 +48,8 @@ final class LazyProject implements Project {
   private static final Logger LOG = getLogger(LazyProject.class);
 
   private final String pomContent;
-  private final List<org.apache.maven.model.Repository> seedRepositories;
+  private final IList<org.apache.maven.model.Repository> seedRepositories;
+  private final Lazy<MavenCoordinates> lightweightCoordinates;
   private final Lazy<EffectiveBuild> effectiveBuild;
   private final Lazy<Model> interimModel;
   private final Lazy<ISet<VersionDeclaration>> versionDeclarations;
@@ -66,6 +68,7 @@ final class LazyProject implements Project {
     // provably initialized yet at that point - a real compile error,
     // not a style choice.
     this.seedRepositories = Conversions.toMavenRepositories(additionalRepositories);
+    this.lightweightCoordinates = new Lazy<>(this::computeLightweightCoordinates);
     this.effectiveBuild = new Lazy<>(this::buildEffective);
     this.interimModel = new Lazy<>(this::buildInterim);
     this.versionDeclarations = new Lazy<>(() -> RawVersionDeclarations.read(this.pomContent));
@@ -78,11 +81,16 @@ final class LazyProject implements Project {
    *   Model.getRepositories() directly, which would only show this one
    *   project's own <repositories> element, not the accumulated result.
    */
-  private record EffectiveBuild(Model model, List<org.apache.maven.model.Repository> repositories) {}
+  private record EffectiveBuild(Model model, IList<org.apache.maven.model.Repository> repositories) {}
 
   @Override
   public MavenCoordinates coordinates() {
-    return Conversions.toMavenCoordinates(effectiveBuild.get().model());
+    return lightweightCoordinates.get();
+  }
+
+  @Override
+  public String toString() {
+    return coordinates().toString();
   }
 
   @Override
@@ -131,6 +139,47 @@ final class LazyProject implements Project {
   @Override
   public ISet<VersionDeclaration> getVersionDeclarations() {
     return versionDeclarations.get();
+  }
+
+  /**
+   * Reads groupId/artifactId/version from this project's own raw text
+   * alone - no full model build, no network, no temp file for a Maven
+   * invocation. artifactId is always stated directly (Maven doesn't
+   * allow inheriting it). groupId/version, if not stated directly, are
+   * inherited from the parent - but the parent's own coordinates are
+   * already sitting right there in this pom's own {@code <parent>}
+   * element (Maven requires that reference to state the parent's real
+   * coordinates), so no fetch of the parent's own pom is needed either.
+   * Only fails loudly when even that isn't available: no parent at all,
+   * or the parent's own version was itself omitted (inferred via
+   * relativePath, MNG-624) - e.g. PomFetcher-based resolution would be
+   * needed for that, out of scope for this lightweight path.
+   */
+  private MavenCoordinates computeLightweightCoordinates() {
+    final Model raw = RawPom.read(pomContent);
+    final String groupId = Opt.ofNullable(raw.getGroupId()).orElseGet(() -> parentField(raw, Parent::getGroupId));
+    final String version = Opt.ofNullable(raw.getVersion()).orElseGet(() -> parentField(raw, Parent::getVersion));
+    return Conversions.toMavenCoordinates(groupId, raw.getArtifactId(), version, packaging(raw));
+  }
+
+  private static String parentField(final Model raw, final Function<Parent, String> field) {
+    final Parent parent = raw.getParent();
+    if(parent==null) {
+      return notYetImplemented(
+        "groupId/version not stated, and no <parent> to inherit them from, for " + raw.getArtifactId()
+      );
+    }
+    final String value = field.apply(parent);
+    if(value==null) {
+      // Since Maven 3.5 (MNG-624) a <parent> may omit <version> and have
+      // it inferred from <relativePath> instead - not resolvable from
+      // this pom's own text alone.
+      return notYetImplemented(
+        "parent version omitted (inferred via relativePath, MNG-624) for "
+        + parent.getGroupId() + ":" + parent.getArtifactId()
+      );
+    }
+    return value;
   }
 
   private EffectiveBuild buildEffective() {

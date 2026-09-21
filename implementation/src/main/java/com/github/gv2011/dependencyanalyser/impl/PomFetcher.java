@@ -13,6 +13,8 @@ import org.apache.maven.model.Repository;
 import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenApi;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenApiResult;
+import com.github.gv2011.util.icol.ICollections;
+import com.github.gv2011.util.icol.IList;
 
 /**
  * Fetches an already-installed/published artifact's own pom.xml content,
@@ -32,7 +34,7 @@ public final class PomFetcher {
   private PomFetcher(){}
 
   public static String fetchPomContent(final MavenCoordinates coordinates) {
-    return fetchPomContent(coordinates, List.of());
+    return fetchPomContent(coordinates, ICollections.emptyList());
   }
 
   /**
@@ -43,7 +45,7 @@ public final class PomFetcher {
    *   no-arg overload's repository-less throwaway project can't see.
    */
   public static String fetchPomContent(
-    final MavenCoordinates coordinates, final List<Repository> repositories
+    final MavenCoordinates coordinates, final IList<Repository> repositories
   ) {
     final Path projectDir = createThrowawayProject(repositories);
     try {
@@ -124,7 +126,7 @@ public final class PomFetcher {
       <version>1</version>
     """;
 
-  private static Path createThrowawayProject(final List<Repository> repositories) {
+  private static Path createThrowawayProject(final IList<Repository> repositories) {
     final Path dir = createTempDir("pom-fetch-project-");
     try {
       Files.writeString(dir.resolve("pom.xml"), buildPom(repositories), StandardCharsets.UTF_8);
@@ -135,7 +137,7 @@ public final class PomFetcher {
     return dir;
   }
 
-  private static String buildPom(final List<Repository> repositories) {
+  private static String buildPom(final IList<Repository> repositories) {
     final StringBuilder pom = new StringBuilder(MINIMAL_POM_HEADER);
     if(!repositories.isEmpty()) {
       pom.append("  <repositories>\n");

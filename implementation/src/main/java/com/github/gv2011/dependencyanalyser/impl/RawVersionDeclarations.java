@@ -2,14 +2,10 @@ package com.github.gv2011.dependencyanalyser.impl;
 
 import static com.github.gv2011.util.BeanUtils.beanBuilder;
 
-import java.io.IOException;
-import java.io.StringReader;
-
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.DependencyManagement;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
-import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 
 import com.github.gv2011.dependencyanalyser.api.DependencySection;
 import com.github.gv2011.dependencyanalyser.api.VersionDeclaration;
@@ -19,11 +15,12 @@ import com.github.gv2011.util.icol.Opt;
 
 /**
  * Reads one project's own pom.xml text - nothing more - via Maven's own
- * raw model reader ({@link MavenXpp3Reader}): no parent inheritance, no
- * BOM-import expansion, no interpolation. This is deliberately NOT the
- * same source as {@link ModelBuilderSketch} - Project.getVersionDeclarations()
- * is the one field on Project that stays unmerged by contract, so it
- * needs the raw reading, not the effective/interim model.
+ * raw model reader ({@link MavenXpp3Reader}, via {@link RawPom}): no
+ * parent inheritance, no BOM-import expansion, no interpolation. This is
+ * deliberately NOT the same source as {@link ModelBuilderSketch} -
+ * Project.getVersionDeclarations() is the one field on Project that
+ * stays unmerged by contract, so it needs the raw reading, not the
+ * effective/interim model.
  *
  * <p>Because there's no interpolation here, a version given as a property
  * placeholder (e.g. {@code ${revision}}) comes back as that literal
@@ -35,7 +32,7 @@ final class RawVersionDeclarations {
   private RawVersionDeclarations(){}
 
   static ISet<VersionDeclaration> read(final String pomContent) {
-    final Model model = readModel(pomContent);
+    final Model model = RawPom.read(pomContent);
     final ISet.Builder<VersionDeclaration> result = ICollections.setBuilder();
     model.getDependencies().forEach(d -> addIfVersioned(result, d, DependencySection.DEPENDENCIES));
     final DependencyManagement management = model.getDependencyManagement();
@@ -43,15 +40,6 @@ final class RawVersionDeclarations {
       management.getDependencies().forEach(d -> addIfVersioned(result, d, DependencySection.DEPENDENCY_MANAGEMENT));
     }
     return result.build();
-  }
-
-  private static Model readModel(final String pomContent) {
-    try {
-      return new MavenXpp3Reader().read(new StringReader(pomContent));
-    }
-    catch(final IOException | XmlPullParserException e) {
-      throw new IllegalArgumentException("Could not parse pom content as a Maven model", e);
-    }
   }
 
   private static void addIfVersioned(
