@@ -3,9 +3,9 @@ package com.github.gv2011.dependencyanalyser.impl;
 import static com.github.gv2011.util.BeanUtils.beanBuilder;
 
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Collection;
 
+import org.apache.maven.model.Model;
 import org.apache.maven.project.MavenProject;
 
 import com.github.gv2011.dependencyanalyser.api.ArtifactIdentity;
@@ -29,6 +29,12 @@ public final class Conversions {
       .set(MavenCoordinates::version).to(VersionImpl.parse(p.getVersion()))
       .build()
     ;
+  }
+
+  public static MavenCoordinates toMavenCoordinates(final Model model){
+    return toMavenCoordinates(
+      model.getGroupId(), model.getArtifactId(), model.getVersion(), LazyProject.packaging(model)
+    );
   }
 
   /**
@@ -68,12 +74,10 @@ public final class Conversions {
     return result;
   }
 
-  public static List<org.apache.maven.model.Repository> toMavenRepositories(
+  public static IList<org.apache.maven.model.Repository> toMavenRepositories(
     final IList<Repository> repositories
   ) {
-    final List<org.apache.maven.model.Repository> result = new ArrayList<>();
-    repositories.forEach(r -> result.add(toMavenRepository(r)));
-    return result;
+    return repositories.stream().map(Conversions::toMavenRepository).collect(ICollections.toIList());
   }
 
   public static Repository toRepository(final org.apache.maven.model.Repository r) {
@@ -84,10 +88,8 @@ public final class Conversions {
     ;
   }
 
-  public static IList<Repository> toRepositories(final List<org.apache.maven.model.Repository> repositories) {
-    final IList.Builder<Repository> result = ICollections.listBuilder();
-    repositories.forEach(r -> result.add(toRepository(r)));
-    return result.build();
+  public static IList<Repository> toRepositories(final Collection<org.apache.maven.model.Repository> repositories) {
+    return repositories.stream().map(Conversions::toRepository).collect(ICollections.toIList());
   }
 
 }

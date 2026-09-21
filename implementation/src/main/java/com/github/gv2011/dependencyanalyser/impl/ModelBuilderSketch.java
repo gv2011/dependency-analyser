@@ -10,7 +10,6 @@
 package com.github.gv2011.dependencyanalyser.impl;
 
 import java.io.File;
-import java.util.Properties;
 
 import org.apache.maven.model.Model;
 import org.apache.maven.model.building.DefaultModelBuilderFactory;

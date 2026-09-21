@@ -1,6 +1,7 @@
 package com.github.gv2011.dependencyanalyser.impl;
 
 import static com.github.gv2011.util.BeanUtils.beanBuilder;
+import static org.slf4j.LoggerFactory.getLogger;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -12,6 +13,7 @@ import java.util.Locale;
 
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Parent;
+import org.slf4j.Logger;
 
 import com.github.gv2011.dependencyanalyser.api.Dependency;
 import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
@@ -41,6 +43,8 @@ import com.github.gv2011.util.icol.Opt;
  * <p>Thread-safe: each of the three computations is memoized via Lazy.
  */
 final class LazyProject implements Project {
+
+  private static final Logger LOG = getLogger(LazyProject.class);
 
   private final String pomContent;
   private final List<org.apache.maven.model.Repository> seedRepositories;
@@ -78,8 +82,7 @@ final class LazyProject implements Project {
 
   @Override
   public MavenCoordinates coordinates() {
-    final Model m = effectiveBuild.get().model();
-    return Conversions.toMavenCoordinates(m.getGroupId(), m.getArtifactId(), m.getVersion(), packaging(m));
+    return Conversions.toMavenCoordinates(effectiveBuild.get().model());
   }
 
   @Override
@@ -135,6 +138,7 @@ final class LazyProject implements Project {
     try {
       final BridgingModelResolver resolver = new BridgingModelResolver(seedRepositories);
       final Model model = ModelBuilderSketch.buildEffectiveModel(tempFile.toFile(), resolver);
+      LOG.info("Built effective model of {}", Conversions.toMavenCoordinates(model));
       return new EffectiveBuild(model, resolver.repositories());
     }
     finally {
@@ -193,7 +197,7 @@ final class LazyProject implements Project {
    * that depends on model building/merging. Applied defensively here
    * regardless, rather than assumed.
    */
-  private static String packaging(final Model m) {
+  static String packaging(final Model m) {
     return Opt.ofNullable(m.getPackaging()).orElse("jar");
   }
 
