@@ -67,19 +67,6 @@ public final class Conversions {
     ;
   }
 
-  public static org.apache.maven.model.Repository toMavenRepository(final Repository r) {
-    final org.apache.maven.model.Repository result = new org.apache.maven.model.Repository();
-    result.setId(r.id().toString());
-    result.setUrl(r.url().toString());
-    return result;
-  }
-
-  public static IList<org.apache.maven.model.Repository> toMavenRepositories(
-    final IList<Repository> repositories
-  ) {
-    return repositories.stream().map(Conversions::toMavenRepository).collect(ICollections.toIList());
-  }
-
   public static Repository toRepository(final org.apache.maven.model.Repository r) {
     return beanBuilder(Repository.class)
       .set(Repository::id).to(TypedString.create(RepositoryId.class, r.getId()))

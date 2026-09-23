@@ -48,8 +48,8 @@ final class LazyProject implements Project {
   private static final Logger LOG = getLogger(LazyProject.class);
 
   private final String pomContent;
-  private final IList<org.apache.maven.model.Repository> seedRepositories;
-  private final Lazy<MavenCoordinates> lightweightCoordinates;
+  private final IList<Repository> seedRepositories;
+  private final MavenCoordinates coordinates;
   private final Lazy<EffectiveBuild> effectiveBuild;
   private final Lazy<Model> interimModel;
   private final Lazy<ISet<VersionDeclaration>> versionDeclarations;
@@ -60,15 +60,24 @@ final class LazyProject implements Project {
    *   what the referring project in an ongoing walk had already
    *   accumulated). See DependencyAnalyser.getProject's own javadoc.
    */
-  LazyProject(final String pomContent, final IList<Repository> additionalRepositories) {
+  LazyProject(final String pomContent, final IList<Repository> seedRepositories) {
     this.pomContent = pomContent;
+    this.coordinates = getCoordinates(pomContent);
+    this.seedRepositories = seedRepositories;
+    this.effectiveBuild = new Lazy<>(this::buildEffective);
+    this.interimModel = new Lazy<>(this::buildInterim);
+    this.versionDeclarations = new Lazy<>(() -> RawVersionDeclarations.read(this.pomContent));
+  }
+
+  LazyProject(final MavenCoordinates coordinates, final IList<Repository> seedRepositories) {
+    this.coordinates = coordinates;
+    this.pomContent = new PomFetcher().fetchPomContent(coordinates, seedRepositories);
     // Assigned here, not as field initializers: field initializers run
     // top-to-bottom before the constructor body, so a lambda in an
     // earlier one referencing pomContent (assigned only below) isn't
     // provably initialized yet at that point - a real compile error,
     // not a style choice.
-    this.seedRepositories = Conversions.toMavenRepositories(additionalRepositories);
-    this.lightweightCoordinates = new Lazy<>(this::computeLightweightCoordinates);
+    this.seedRepositories = seedRepositories;
     this.effectiveBuild = new Lazy<>(this::buildEffective);
     this.interimModel = new Lazy<>(this::buildInterim);
     this.versionDeclarations = new Lazy<>(() -> RawVersionDeclarations.read(this.pomContent));
@@ -81,11 +90,11 @@ final class LazyProject implements Project {
    *   Model.getRepositories() directly, which would only show this one
    *   project's own <repositories> element, not the accumulated result.
    */
-  private record EffectiveBuild(Model model, IList<org.apache.maven.model.Repository> repositories) {}
+  private record EffectiveBuild(Model model, IList<Repository> repositories) {}
 
   @Override
   public MavenCoordinates coordinates() {
-    return lightweightCoordinates.get();
+    return coordinates;
   }
 
   @Override
@@ -95,7 +104,7 @@ final class LazyProject implements Project {
 
   @Override
   public IList<Repository> additionalRepositories() {
-    return Conversions.toRepositories(effectiveBuild.get().repositories());
+    return effectiveBuild.get().repositories();
   }
 
   @Override
@@ -155,7 +164,7 @@ final class LazyProject implements Project {
    * relativePath, MNG-624) - e.g. PomFetcher-based resolution would be
    * needed for that, out of scope for this lightweight path.
    */
-  private MavenCoordinates computeLightweightCoordinates() {
+  private static MavenCoordinates getCoordinates(final String pomContent) {
     final Model raw = RawPom.read(pomContent);
     final String groupId = Opt.ofNullable(raw.getGroupId()).orElseGet(() -> parentField(raw, Parent::getGroupId));
     final String version = Opt.ofNullable(raw.getVersion()).orElseGet(() -> parentField(raw, Parent::getVersion));
@@ -261,5 +270,7 @@ final class LazyProject implements Project {
       .build()
     ;
   }
+
+
 
 }

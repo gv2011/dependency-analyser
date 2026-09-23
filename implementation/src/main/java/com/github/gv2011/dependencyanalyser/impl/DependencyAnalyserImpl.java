@@ -31,14 +31,7 @@ public class DependencyAnalyserImpl implements DependencyAnalyser {
 
   @Override
   public Project getProject(final MavenCoordinates projectCoordinates, final IList<Repository> additionalRepositories) {
-    // The fetch of this project's own pom needs the given repositories
-    // too, not just the model build that happens afterward - otherwise
-    // an artifact that lives only in one of them could never be found
-    // in the first place.
-    final String pomContent = PomFetcher.fetchPomContent(
-      projectCoordinates, Conversions.toMavenRepositories(additionalRepositories)
-    );
-    return new LazyProject(pomContent, additionalRepositories);
+    return new LazyProject(projectCoordinates, additionalRepositories);
   }
 
   @Override

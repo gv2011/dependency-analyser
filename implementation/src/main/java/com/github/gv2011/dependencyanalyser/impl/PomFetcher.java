@@ -8,12 +8,10 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 
-import org.apache.maven.model.Repository;
-
 import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
+import com.github.gv2011.dependencyanalyser.api.Repository;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenApi;
 import com.github.gv2011.dependencyanalyser.mvnapi.MavenApiResult;
-import com.github.gv2011.util.icol.ICollections;
 import com.github.gv2011.util.icol.IList;
 
 /**
@@ -29,13 +27,9 @@ import com.github.gv2011.util.icol.IList;
  * directory, before returning. The caller only ever sees the content
  * itself, as a String, never a file path.
  */
-public final class PomFetcher {
+final class PomFetcher {
 
-  private PomFetcher(){}
-
-  public static String fetchPomContent(final MavenCoordinates coordinates) {
-    return fetchPomContent(coordinates, ICollections.emptyList());
-  }
+  PomFetcher(){}
 
   /**
    * @param repositories consulted in addition to whatever settings.xml
@@ -44,7 +38,7 @@ public final class PomFetcher {
    *   (a private/internal repository being the common case), which the
    *   no-arg overload's repository-less throwaway project can't see.
    */
-  public static String fetchPomContent(
+  public String fetchPomContent(
     final MavenCoordinates coordinates, final IList<Repository> repositories
   ) {
     final Path projectDir = createThrowawayProject(repositories);
@@ -124,7 +118,15 @@ public final class PomFetcher {
       <groupId>com.github.gv2011.dependencyanalyser</groupId>
       <artifactId>pom-fetcher-throwaway</artifactId>
       <version>1</version>
-    """;
+    """
+  ;
+
+  private static final String POM_FOOTER = """
+    </project>
+
+    """
+  ;
+
 
   private static Path createThrowawayProject(final IList<Repository> repositories) {
     final Path dir = createTempDir("pom-fetch-project-");
@@ -142,14 +144,16 @@ public final class PomFetcher {
     if(!repositories.isEmpty()) {
       pom.append("  <repositories>\n");
       for(final Repository r: repositories) {
-        pom.append("    <repository>\n")
-          .append("      <id>").append(xmlEscape(r.getId())).append("</id>\n")
-          .append("      <url>").append(xmlEscape(r.getUrl())).append("</url>\n")
-          .append("    </repository>\n");
+        pom
+          .append("    <repository>\n")
+          .append("      <id>" ).append(xmlEscape(r.id() .toString())).append("</id>\n" )
+          .append("      <url>").append(xmlEscape(r.url().toString())).append("</url>\n")
+          .append("    </repository>\n")
+        ;
       }
       pom.append("  </repositories>\n");
     }
-    pom.append("</project>\n");
+    pom.append(POM_FOOTER);
     return pom.toString();
   }
 

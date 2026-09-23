@@ -10,14 +10,13 @@ import java.util.List;
 
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Parent;
-import org.apache.maven.model.Repository;
 import org.apache.maven.model.building.FileModelSource;
 import org.apache.maven.model.building.ModelSource;
 import org.apache.maven.model.building.ModelSource2;
-import org.apache.maven.model.resolution.InvalidRepositoryException;
 import org.apache.maven.model.resolution.ModelResolver;
 import org.apache.maven.model.resolution.UnresolvableModelException;
 
+import com.github.gv2011.dependencyanalyser.api.Repository;
 import com.github.gv2011.util.icol.ICollections;
 import com.github.gv2011.util.icol.IList;
 
@@ -64,7 +63,7 @@ final class BridgingModelResolver implements ModelResolver {
    * whatever it inherited) actually declared.
    */
   IList<Repository> repositories() {
-    return repositories.stream().collect(ICollections.toIList());
+    return ICollections.listFrom(repositories);
   }
 
   // ModelSource itself is deprecated in favor of ModelSource2 (its
@@ -99,7 +98,7 @@ final class BridgingModelResolver implements ModelResolver {
   {
     final String pomContent;
     try {
-      pomContent = PomFetcher.fetchPomContent(
+      pomContent = new PomFetcher().fetchPomContent(
         Conversions.toMavenCoordinates(groupId, artifactId, version, "pom"), repositories()
       );
     }
@@ -119,22 +118,26 @@ final class BridgingModelResolver implements ModelResolver {
     }
   }
 
-  @Override
-  public void addRepository(final Repository repository) throws InvalidRepositoryException {
+  @Override//import org.apache.maven.model.Repository;
+  public void addRepository(final org.apache.maven.model.Repository repository){
     addRepository(repository, false);
   }
 
   @Override
-  public void addRepository(final Repository repository, final boolean replace)
-    throws InvalidRepositoryException
-  {
+  public void addRepository(final org.apache.maven.model.Repository repository, final boolean replace){
+    addRepository(Conversions.toRepository(repository), replace);
+  }
+
+  private void addRepository(final Repository repository, final boolean replace) {
     if(replace) {
-      repositories.removeIf(r -> r.getId().equals(repository.getId()));
+      repositories.removeIf(r -> r.id().equals(repository.id()));
+      repositories.add(repository);
     }
-    else if(repositories.stream().anyMatch(r -> r.getId().equals(repository.getId()))) {
-      return; // already present, not replacing - keep the existing one
-    }
-    repositories.add(repository);
+    else if(!isPresent(repository)) repositories.add(repository);
+  }
+
+  private boolean isPresent(final Repository repository){
+    return repositories.stream().anyMatch(r -> r.id().equals(repository.id()));
   }
 
   @Override
