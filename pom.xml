@@ -161,11 +161,15 @@
       <plugins>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-toolchains-plugin</artifactId>
+          <version>3.3.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
           <version>3.16.0</version>
           <configuration>
             <release>${java.release}</release>
-            <encoding>UTF-8</encoding>
             <parameters>true</parameters>
           </configuration>
         </plugin>
@@ -205,7 +209,7 @@
       <id>IT</id>
       <activation>
         <!-- We don't need currently any special environment setup for integration tests, so they should run 
-             by default. Not using activeByDefault, because it doesn't apply' if other profiles are activated.'
+             by default. Not using activeByDefault, because it doesn't apply if other profiles are activated.
         -->
         <property>
           <name>!env.NO_IT</name>

@@ -29,16 +29,13 @@ import com.github.gv2011.util.icol.IList;
  */
 final class PomFetcher {
 
-  PomFetcher(){}
-
   /**
    * @param repositories consulted in addition to whatever settings.xml
    *   already configures globally - needed for an artifact that lives
    *   only in a repository declared in some real project's own pom.xml
-   *   (a private/internal repository being the common case), which the
-   *   no-arg overload's repository-less throwaway project can't see.
+   *   (a private/internal repository being the common case).
    */
-  public String fetchPomContent(
+  String fetchPomContent(
     final MavenCoordinates coordinates, final IList<Repository> repositories
   ) {
     if(coordinates.identity().classifier().isPresent() || !coordinates.identity().type().equals("pom")) {

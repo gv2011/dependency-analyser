@@ -44,8 +44,17 @@ public interface DependencyAnalyser {
 
   RepositoryId parseRepositoryId(String repositoryId);
 
+  /**
+   * {@code groupId:artifactId:type[:classifier]} - the format of Maven's own
+   * {@code Artifact.getDependencyConflictId()}, see
+   * https://github.com/apache/maven/blob/maven-3.9.11/maven-artifact/src/main/java/org/apache/maven/artifact/DefaultArtifact.java
+   */
   String format(ArtifactIdentity artifactIdentity);
 
+  /**
+   * {@code groupId:artifactId:type[:classifier]:version} - the format of Maven's
+   * own {@code Artifact.getId()}, as also shown by {@code dependency:list} (without the scope).
+   */
   String format(MavenCoordinates mavenCoordinates);
 
 }

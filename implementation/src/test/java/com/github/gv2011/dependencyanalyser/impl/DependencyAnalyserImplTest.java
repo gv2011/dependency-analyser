@@ -1,5 +1,6 @@
 package com.github.gv2011.dependencyanalyser.impl;
 
+import static com.github.gv2011.util.BeanUtils.beanBuilder;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -14,9 +15,11 @@ import org.junit.jupiter.api.io.TempDir;
 
 import com.github.gv2011.dependencyanalyser.api.Dependency;
 import com.github.gv2011.dependencyanalyser.api.DependencyAnalyser;
+import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
 import com.github.gv2011.dependencyanalyser.api.MavenScope;
 import com.github.gv2011.dependencyanalyser.api.Project;
 import com.github.gv2011.util.icol.ICollections;
+import com.github.gv2011.util.icol.Opt;
 
 class DependencyAnalyserImplTest {
 
@@ -164,6 +167,24 @@ class DependencyAnalyserImplTest {
       material3.coordinates().version().toString().isBlank(),
       is(false)
     );
+  }
+
+  @Test
+  void formatTest() {
+    final DependencyAnalyser analyser = new DependencyAnalyserImpl();
+    assertThat(
+      analyser.format(Conversions.toMavenCoordinates("com.example", "lib", "1.0", "pom")),
+      is("com.example:lib:pom:1.0")
+    );
+    final MavenCoordinates withClassifier = beanBuilder(MavenCoordinates.class)
+      .set(MavenCoordinates::identity).to(
+        Conversions.toArtifactIdentity("com.example", "lib", Opt.of("tests"), "test-jar")
+      )
+      .set(MavenCoordinates::version).to(VersionImpl.parse("1.0"))
+      .build()
+    ;
+    assertThat(analyser.format(withClassifier.identity()), is("com.example:lib:test-jar:tests"));
+    assertThat(analyser.format(withClassifier), is("com.example:lib:test-jar:tests:1.0"));
   }
 
 }

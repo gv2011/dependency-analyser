@@ -3,7 +3,6 @@ package com.github.gv2011.dependencyanalyser.impl;
 import static com.github.gv2011.util.BeanUtils.beanBuilder;
 
 import java.net.URI;
-import java.util.Collection;
 
 import org.apache.maven.model.Model;
 import org.apache.maven.project.MavenProject;
@@ -12,8 +11,6 @@ import com.github.gv2011.dependencyanalyser.api.ArtifactIdentity;
 import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
 import com.github.gv2011.dependencyanalyser.api.Repository;
 import com.github.gv2011.dependencyanalyser.api.RepositoryId;
-import com.github.gv2011.util.icol.ICollections;
-import com.github.gv2011.util.icol.IList;
 import com.github.gv2011.util.icol.Opt;
 import com.github.gv2011.util.tstr.TypedString;
 
@@ -73,10 +70,6 @@ public final class Conversions {
       .set(Repository::url).to(URI.create(r.getUrl()))
       .build()
     ;
-  }
-
-  public static IList<Repository> toRepositories(final Collection<org.apache.maven.model.Repository> repositories) {
-    return repositories.stream().map(Conversions::toRepository).collect(ICollections.toIList());
   }
 
 }

@@ -40,28 +40,33 @@ final class LazyProject implements Project {
   private final Lazy<ISet<VersionDeclaration>> versionDeclarations;
 
   /**
-   * @param additionalRepositories seeded into the model build - repositories
+   * @param seedRepositories seeded into the model build - repositories
    *   already known before this project's own text is even read (typically:
    *   what the referring project in an ongoing walk had already
    *   accumulated). See DependencyAnalyser.getProject's own javadoc.
    */
   LazyProject(final String pomContent, final IList<Repository> seedRepositories) {
-    this.pomContent = pomContent;
-    this.coordinates = getCoordinates(pomContent);
-    this.seedRepositories = seedRepositories;
-    this.effectiveBuild = new Lazy<>(this::buildEffective);
-    this.interimModel = new Lazy<>(this::buildInterim);
-    this.versionDeclarations = new Lazy<>(() -> RawVersionDeclarations.read(this.pomContent));
+    this(getCoordinates(pomContent), pomContent, seedRepositories);
   }
 
+  /**
+   * The fetch of this project's own pom needs seedRepositories too, not
+   * just the model build that happens afterward - otherwise a pom that
+   * lives only in one of them could never be found in the first place.
+   */
   LazyProject(final MavenCoordinates coordinates, final IList<Repository> seedRepositories) {
-    this.coordinates = coordinates;
-    this.pomContent = new PomFetcher().fetchPomContent(coordinates, seedRepositories);
+    this(coordinates, new PomFetcher().fetchPomContent(coordinates, seedRepositories), seedRepositories);
+  }
+
+  private LazyProject(
+    final MavenCoordinates coordinates, final String pomContent, final IList<Repository> seedRepositories
+  ) {
     // Assigned here, not as field initializers: field initializers run
-    // top-to-bottom before the constructor body, so a lambda in an
-    // earlier one referencing pomContent (assigned only below) isn't
-    // provably initialized yet at that point - a real compile error,
-    // not a style choice.
+    // before the constructor body, so a lambda in one of them referencing
+    // pomContent would read a field not provably assigned yet - a real
+    // compile error, not a style choice.
+    this.coordinates = coordinates;
+    this.pomContent = pomContent;
     this.seedRepositories = seedRepositories;
     this.effectiveBuild = new Lazy<>(this::buildEffective);
     this.interimModel = new Lazy<>(this::buildInterim);
@@ -255,7 +260,5 @@ final class LazyProject implements Project {
       .build()
     ;
   }
-
-
 
 }

@@ -118,7 +118,7 @@ final class BridgingModelResolver implements ModelResolver {
     }
   }
 
-  @Override//import org.apache.maven.model.Repository;
+  @Override
   public void addRepository(final org.apache.maven.model.Repository repository){
     addRepository(repository, false);
   }

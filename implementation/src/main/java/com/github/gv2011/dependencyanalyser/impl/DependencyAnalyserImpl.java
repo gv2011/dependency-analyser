@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import com.github.gv2011.dependencyanalyser.api.ArtifactIdentity;
 import com.github.gv2011.dependencyanalyser.api.DependencyAnalyser;
 import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
 import com.github.gv2011.dependencyanalyser.api.Project;
@@ -42,6 +43,19 @@ public class DependencyAnalyserImpl implements DependencyAnalyser {
   @Override
   public RepositoryId parseRepositoryId(final String repositoryId) {
     return TypedString.create(RepositoryId.class, repositoryId);
+  }
+
+  @Override
+  public String format(final ArtifactIdentity artifactIdentity) {
+    return
+      artifactIdentity.groupId() + ":" + artifactIdentity.artifactId() + ":" + artifactIdentity.type()
+      + artifactIdentity.classifier().map(c -> ":" + c).orElse("")
+    ;
+  }
+
+  @Override
+  public String format(final MavenCoordinates mavenCoordinates) {
+    return format(mavenCoordinates.identity()) + ":" + mavenCoordinates.version();
   }
 
 }
