@@ -41,6 +41,9 @@ final class PomFetcher {
   public String fetchPomContent(
     final MavenCoordinates coordinates, final IList<Repository> repositories
   ) {
+    if(coordinates.identity().classifier().isPresent() || !coordinates.identity().type().equals("pom")) {
+      throw new IllegalArgumentException("Not the coordinates of a pom: " + coordinates);
+    }
     final Path projectDir = createThrowawayProject(repositories);
     try {
       final Path outputDir = createTempDir("pom-fetch-output-");
@@ -71,10 +74,8 @@ final class PomFetcher {
         "-N", // this throwaway project only, not a reactor recursion
         "-B", // batch mode: no interactive prompts
         "dependency:copy",
-        // groupId:artifactId:version:packaging - the artifact's own real
-        // packaging (coordinates.identity().type()) is irrelevant here;
-        // :pom always means "fetch the POM file itself", regardless of
-        // what the artifact is otherwise packaged as.
+        // groupId:artifactId:version:packaging - always :pom, checked
+        // by fetchPomContent.
         "-Dartifact="
           + coordinates.identity().groupId() + ":"
           + coordinates.identity().artifactId() + ":"

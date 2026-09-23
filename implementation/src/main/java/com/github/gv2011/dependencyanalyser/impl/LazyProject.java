@@ -153,7 +153,7 @@ final class LazyProject implements Project {
     final Model raw = RawPom.read(pomContent);
     final String groupId = Opt.ofNullable(raw.getGroupId()).orElseGet(() -> parentField(raw, Parent::getGroupId));
     final String version = Opt.ofNullable(raw.getVersion()).orElseGet(() -> parentField(raw, Parent::getVersion));
-    return Conversions.toMavenCoordinates(groupId, raw.getArtifactId(), version, packaging(raw));
+    return Conversions.toMavenCoordinates(groupId, raw.getArtifactId(), version, "pom");
   }
 
   private static String parentField(final Model raw, final Function<Parent, String> field) {
