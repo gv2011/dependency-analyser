@@ -44,4 +44,8 @@ public interface DependencyAnalyser {
 
   RepositoryId parseRepositoryId(String repositoryId);
 
+  String format(ArtifactIdentity artifactIdentity);
+
+  String format(MavenCoordinates mavenCoordinates);
+
 }

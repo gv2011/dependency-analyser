@@ -27,22 +27,7 @@ import com.github.gv2011.util.icol.IList;
 import com.github.gv2011.util.icol.ISet;
 import com.github.gv2011.util.icol.Opt;
 
-/**
- * Hand-written Project implementation - deliberately not Bean-proxied,
- * see Project's own javadoc for why. Backed by three independently
- * lazy, memoized (via {@link Lazy}) computations, not five: the
- * effective model build backs coordinates()/additionalRepositories()/
- * parent()/dependencies() together (they're all read from the one
- * build - additionalRepositories() specifically from the resolver that
- * build used, not the Model itself), the interim model build backs
- * boms() alone (see ModelBuilderSketch for why that has to be a
- * separate build), and a raw text parse backs getVersionDeclarations()
- * alone. A caller that only ever calls parent(), say, triggers the
- * effective-model build and nothing else - never the interim build,
- * never the raw parse.
- *
- * <p>Thread-safe: each of the three computations is memoized via Lazy.
- */
+
 final class LazyProject implements Project {
 
   private static final Logger LOG = getLogger(LazyProject.class);
