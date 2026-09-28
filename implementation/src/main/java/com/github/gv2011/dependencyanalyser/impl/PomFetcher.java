@@ -31,7 +31,7 @@ import com.github.gv2011.util.icol.IList;
  * Fetches a pom from the local repository or, if missing there, from remote
  * repositories, in-process via Maven Resolver.
  *
- * <p>The RepositorySystem and its session are created on first use and then
+ * <p>The RepositorySystem and its session are created once per instance and
  * reused: creating them is the expensive part, a single resolution is cheap.
  * The session is configured from settings.xml (see {@link SettingsReader}) the
  * same way Maven 3.9's own DefaultRepositorySystemSessionFactory does it:
@@ -43,9 +43,14 @@ final class PomFetcher {
     new RemoteRepository.Builder("central", "default", "https://repo.maven.apache.org/maven2").build()
   ;
 
-  private record Resolver(RepositorySystem system, RepositorySystemSession session) {}
+  private final RepositorySystem system;
+  private final RepositorySystemSession session;
 
-  private final Lazy<Resolver> resolver = new Lazy<>(PomFetcher::createResolver);
+  PomFetcher() {
+    final Settings settings = new SettingsReader().read();
+    system = new RepositorySystemSupplier().get();
+    session = createSession(system, settings);
+  }
 
   /**
    * @param repositories consulted before Central, in this order.
@@ -62,7 +67,6 @@ final class PomFetcher {
     if(coordinates.identity().classifier().isPresent() || !coordinates.identity().type().equals("pom")) {
       throw new IllegalArgumentException("Not the coordinates of a pom: " + coordinates);
     }
-    final Resolver r = resolver.get();
     final ArtifactRequest request = new ArtifactRequest(
       new DefaultArtifact(
         coordinates.identity().groupId(),
@@ -72,10 +76,10 @@ final class PomFetcher {
         coordinates.version().toString()
       ),
       // Applies mirrors, proxies and credentials from the session.
-      r.system().newResolutionRepositories(r.session(), remoteRepositories(repositories)),
+      system.newResolutionRepositories(session, remoteRepositories(repositories)),
       null
     );
-    return call(() -> r.system().resolveArtifact(r.session(), request)).getArtifact().getFile().toPath();
+    return call(() -> system.resolveArtifact(session, request)).getArtifact().getFile().toPath();
   }
 
   private static List<RemoteRepository> remoteRepositories(final IList<Repository> repositories) {
@@ -93,11 +97,8 @@ final class PomFetcher {
     ;
   }
 
-  private static Resolver createResolver() {
-    final Settings settings = new SettingsReader().read();
-    final RepositorySystem system = new RepositorySystemSupplier().get();
+  private static RepositorySystemSession createSession(final RepositorySystem system, final Settings settings) {
     final DefaultRepositorySystemSession session = MavenRepositorySystemUtils.newSession();
-    session.setSystemProperties(System.getProperties());
     session.setOffline(settings.isOffline());
     session.setLocalRepositoryManager(
       system.newLocalRepositoryManager(session, new LocalRepository(settings.getLocalRepository()))
@@ -106,7 +107,7 @@ final class PomFetcher {
     session.setProxySelector(proxySelector(settings));
     session.setAuthenticationSelector(authenticationSelector(settings));
     session.setReadOnly();
-    return new Resolver(system, session);
+    return session;
   }
 
   private static DefaultMirrorSelector mirrorSelector(final Settings settings) {
