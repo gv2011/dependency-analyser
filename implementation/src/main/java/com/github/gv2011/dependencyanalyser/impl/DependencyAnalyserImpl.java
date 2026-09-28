@@ -18,6 +18,8 @@ import com.github.gv2011.util.tstr.TypedString;
 
 public class DependencyAnalyserImpl implements DependencyAnalyser {
 
+  private final PomFetcher pomFetcher = new PomFetcher();
+
   @Override
   public Project getProject(final Path projectDirectory, final IList<Repository> additionalRepositories) {
     final String pomContent;
@@ -27,12 +29,12 @@ public class DependencyAnalyserImpl implements DependencyAnalyser {
     catch(final IOException e) {
       throw new UncheckedIOException(e);
     }
-    return new LazyProject(pomContent, additionalRepositories);
+    return new LazyProject(pomFetcher, pomContent, additionalRepositories);
   }
 
   @Override
   public Project getProject(final MavenCoordinates projectCoordinates, final IList<Repository> additionalRepositories) {
-    return new LazyProject(projectCoordinates, additionalRepositories);
+    return new LazyProject(pomFetcher, projectCoordinates, additionalRepositories);
   }
 
   @Override

@@ -1,187 +1,147 @@
 package com.github.gv2011.dependencyanalyser.impl;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
+import static com.github.gv2011.util.ex.Exceptions.call;
+
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Stream;
+
+import org.apache.maven.repository.internal.MavenRepositorySystemUtils;
+import org.apache.maven.settings.Settings;
+import org.eclipse.aether.DefaultRepositorySystemSession;
+import org.eclipse.aether.RepositorySystem;
+import org.eclipse.aether.RepositorySystemSession;
+import org.eclipse.aether.artifact.DefaultArtifact;
+import org.eclipse.aether.repository.LocalRepository;
+import org.eclipse.aether.repository.RemoteRepository;
+import org.eclipse.aether.resolution.ArtifactRequest;
+import org.eclipse.aether.supplier.RepositorySystemSupplier;
+import org.eclipse.aether.util.repository.AuthenticationBuilder;
+import org.eclipse.aether.util.repository.DefaultAuthenticationSelector;
+import org.eclipse.aether.util.repository.DefaultMirrorSelector;
+import org.eclipse.aether.util.repository.DefaultProxySelector;
 
 import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
 import com.github.gv2011.dependencyanalyser.api.Repository;
-import com.github.gv2011.dependencyanalyser.mvnapi.MavenApi;
-import com.github.gv2011.dependencyanalyser.mvnapi.MavenApiResult;
 import com.github.gv2011.util.icol.IList;
 
 /**
- * Fetches an already-installed/published artifact's own pom.xml content,
- * given only its coordinates - no project on disk needed: this generates
- * its own throwaway, minimal project directory to run dependency:copy
- * from, since every Maven goal needs some project context to execute even
- * when what it fetches is entirely unrelated to that context.
+ * Fetches a pom from the local repository or, if missing there, from remote
+ * repositories, in-process via Maven Resolver.
  *
- * <p>dependency:copy writes to a file - there is no way around that, it is
- * how the goal itself works - but that file is this method's own internal,
- * transient detail: read and deleted, along with the throwaway project
- * directory, before returning. The caller only ever sees the content
- * itself, as a String, never a file path.
+ * <p>The RepositorySystem and its session are created on first use and then
+ * reused: creating them is the expensive part, a single resolution is cheap.
+ * The session is configured from settings.xml (see {@link SettingsReader}) the
+ * same way Maven 3.9's own DefaultRepositorySystemSessionFactory does it:
+ * local repository, offline flag, mirrors, active proxies, server credentials.
  */
 final class PomFetcher {
 
+  private static final RemoteRepository CENTRAL =
+    new RemoteRepository.Builder("central", "default", "https://repo.maven.apache.org/maven2").build()
+  ;
+
+  private record Resolver(RepositorySystem system, RepositorySystemSession session) {}
+
+  private final Lazy<Resolver> resolver = new Lazy<>(PomFetcher::createResolver);
+
   /**
-   * @param repositories consulted in addition to whatever settings.xml
-   *   already configures globally - needed for an artifact that lives
-   *   only in a repository declared in some real project's own pom.xml
-   *   (a private/internal repository being the common case).
+   * @param repositories consulted before Central, in this order.
    */
-  String fetchPomContent(
-    final MavenCoordinates coordinates, final IList<Repository> repositories
-  ) {
+  String fetchPomContent(final MavenCoordinates coordinates, final IList<Repository> repositories) {
+    return call(() -> Files.readString(fetchPom(coordinates, repositories), StandardCharsets.UTF_8));
+  }
+
+  /**
+   * @param repositories consulted before Central, in this order.
+   * @return the pom file in the local repository
+   */
+  Path fetchPom(final MavenCoordinates coordinates, final IList<Repository> repositories) {
     if(coordinates.identity().classifier().isPresent() || !coordinates.identity().type().equals("pom")) {
       throw new IllegalArgumentException("Not the coordinates of a pom: " + coordinates);
     }
-    final Path projectDir = createThrowawayProject(repositories);
-    try {
-      final Path outputDir = createTempDir("pom-fetch-output-");
-      try {
-        return copyAndRead(coordinates, projectDir, outputDir);
-      }
-      finally {
-        deleteRecursively(outputDir);
-      }
-    }
-    finally {
-      deleteRecursively(projectDir);
-    }
-  }
-
-  private static String copyAndRead(
-    final MavenCoordinates coordinates, final Path projectDir, final Path outputDir
-  ) {
-    // MavenApi requires this system property to be set; normally the `mvn`
-    // launcher script sets it, which programmatic embedding bypasses. Same
-    // pattern as DependencyAnalyserImpl.runDependencyList.
-    System.setProperty(
-      MavenApi.MULTIMODULE_PROJECT_DIRECTORY,
-      projectDir.toAbsolutePath().toString()
+    final Resolver r = resolver.get();
+    final ArtifactRequest request = new ArtifactRequest(
+      new DefaultArtifact(
+        coordinates.identity().groupId(),
+        coordinates.identity().artifactId(),
+        "",
+        "pom",
+        coordinates.version().toString()
+      ),
+      // Applies mirrors, proxies and credentials from the session.
+      r.system().newResolutionRepositories(r.session(), remoteRepositories(repositories)),
+      null
     );
-    final MavenApiResult result = MavenApi.createApi().doMain(
-      new String[]{
-        "-N", // this throwaway project only, not a reactor recursion
-        "-B", // batch mode: no interactive prompts
-        "dependency:copy",
-        // groupId:artifactId:version:packaging - always :pom, checked
-        // by fetchPomContent.
-        "-Dartifact="
-          + coordinates.identity().groupId() + ":"
-          + coordinates.identity().artifactId() + ":"
-          + coordinates.version() + ":pom",
-        "-DoutputDirectory=" + outputDir.toAbsolutePath(),
-      },
-      projectDir.toAbsolutePath().toString()
+    return call(() -> r.system().resolveArtifact(r.session(), request)).getArtifact().getFile().toPath();
+  }
+
+  private static List<RemoteRepository> remoteRepositories(final IList<Repository> repositories) {
+    return Stream
+      .concat(
+        ( repositories.stream()
+          .map(rep -> new RemoteRepository.Builder(rep.id().toString(), "default", rep.url().toString()).build())
+        ),
+        ( repositories.stream().anyMatch(rep -> rep.id().toString().equals(CENTRAL.getId()))
+          ? Stream.empty()
+          : Stream.of(CENTRAL)
+        )
+      )
+      .toList()
+    ;
+  }
+
+  private static Resolver createResolver() {
+    final Settings settings = new SettingsReader().read();
+    final RepositorySystem system = new RepositorySystemSupplier().get();
+    final DefaultRepositorySystemSession session = MavenRepositorySystemUtils.newSession();
+    session.setSystemProperties(System.getProperties());
+    session.setOffline(settings.isOffline());
+    session.setLocalRepositoryManager(
+      system.newLocalRepositoryManager(session, new LocalRepository(settings.getLocalRepository()))
     );
-    if(!result.exceptions().isEmpty()) {
-      final RuntimeException toThrow = new RuntimeException(
-        "dependency:copy failed for " + coordinates + ": " + result.exceptions().size() + " exception(s)"
-      );
-      result.exceptions().forEach(toThrow::addSuppressed);
-      throw toThrow;
-    }
-    final List<Path> files;
-    try(var listing = Files.list(outputDir)) {
-      files = listing.toList();
-    }
-    catch(final IOException e) {
-      throw new UncheckedIOException(e);
-    }
-    if(files.size()!=1) {
-      throw new IllegalStateException(
-        "Expected exactly one file in " + outputDir + " after dependency:copy, found "
-        + files.size() + ": " + files
-      );
-    }
-    try {
-      return Files.readString(files.get(0), StandardCharsets.UTF_8);
-    }
-    catch(final IOException e) {
-      throw new UncheckedIOException(e);
-    }
+    session.setMirrorSelector(mirrorSelector(settings));
+    session.setProxySelector(proxySelector(settings));
+    session.setAuthenticationSelector(authenticationSelector(settings));
+    session.setReadOnly();
+    return new Resolver(system, session);
   }
 
-  private static final String MINIMAL_POM_HEADER = """
-    <?xml version="1.0" encoding="UTF-8"?>
-    <project xmlns="http://maven.apache.org/POM/4.0.0">
-      <modelVersion>4.0.0</modelVersion>
-      <groupId>com.github.gv2011.dependencyanalyser</groupId>
-      <artifactId>pom-fetcher-throwaway</artifactId>
-      <version>1</version>
-    """
-  ;
-
-  private static final String POM_FOOTER = """
-    </project>
-
-    """
-  ;
-
-
-  private static Path createThrowawayProject(final IList<Repository> repositories) {
-    final Path dir = createTempDir("pom-fetch-project-");
-    try {
-      Files.writeString(dir.resolve("pom.xml"), buildPom(repositories), StandardCharsets.UTF_8);
-    }
-    catch(final IOException e) {
-      throw new UncheckedIOException(e);
-    }
-    return dir;
+  private static DefaultMirrorSelector mirrorSelector(final Settings settings) {
+    final DefaultMirrorSelector selector = new DefaultMirrorSelector();
+    settings.getMirrors().forEach(m -> selector.add(
+      m.getId(), m.getUrl(), m.getLayout(), false, m.isBlocked(), m.getMirrorOf(), m.getMirrorOfLayouts()
+    ));
+    return selector;
   }
 
-  private static String buildPom(final IList<Repository> repositories) {
-    final StringBuilder pom = new StringBuilder(MINIMAL_POM_HEADER);
-    if(!repositories.isEmpty()) {
-      pom.append("  <repositories>\n");
-      for(final Repository r: repositories) {
-        pom
-          .append("    <repository>\n")
-          .append("      <id>" ).append(xmlEscape(r.id() .toString())).append("</id>\n" )
-          .append("      <url>").append(xmlEscape(r.url().toString())).append("</url>\n")
-          .append("    </repository>\n")
-        ;
-      }
-      pom.append("  </repositories>\n");
-    }
-    pom.append(POM_FOOTER);
-    return pom.toString();
+  private static DefaultProxySelector proxySelector(final Settings settings) {
+    final DefaultProxySelector selector = new DefaultProxySelector();
+    settings.getProxies().stream().filter(p -> p.isActive()).forEach(p -> selector.add(
+      new org.eclipse.aether.repository.Proxy(
+        p.getProtocol(),
+        p.getHost(),
+        p.getPort(),
+        new AuthenticationBuilder().addUsername(p.getUsername()).addPassword(p.getPassword()).build()
+      ),
+      p.getNonProxyHosts()
+    ));
+    return selector;
   }
 
-  private static String xmlEscape(final String s) {
-    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
-  }
-
-  private static Path createTempDir(final String prefix) {
-    try {
-      return Files.createTempDirectory(prefix);
-    }
-    catch(final IOException e) {
-      throw new UncheckedIOException(e);
-    }
-  }
-
-  private static void deleteRecursively(final Path dir) {
-    try(var walk = Files.walk(dir)) {
-      walk.sorted(Comparator.reverseOrder()).forEach(p -> {
-        try {
-          Files.delete(p);
-        }
-        catch(final IOException e) {
-          throw new UncheckedIOException(e);
-        }
-      });
-    }
-    catch(final IOException e) {
-      throw new UncheckedIOException(e);
-    }
+  private static DefaultAuthenticationSelector authenticationSelector(final Settings settings) {
+    final DefaultAuthenticationSelector selector = new DefaultAuthenticationSelector();
+    settings.getServers().forEach(s -> selector.add(
+      s.getId(),
+      new AuthenticationBuilder()
+        .addUsername(s.getUsername())
+        .addPassword(s.getPassword())
+        .addPrivateKey(s.getPrivateKey(), s.getPassphrase())
+        .build()
+    ));
+    return selector;
   }
 
 }

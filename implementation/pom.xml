@@ -15,8 +15,9 @@
 
   <name>Dependency Analyser Implementation</name>
   <description>
-    Embedded-MavenCli-based implementation of the dependency-analyser-api
-    interfaces, registered via ServiceLoader (META-INF/services).
+    Implementation of the dependency-analyser-api interfaces, using Maven's
+    model builder and Maven Resolver in-process, registered via
+    ServiceLoader (META-INF/services).
   </description>
 
   <dependencies>
@@ -32,12 +33,19 @@
     </dependency>
     <dependency>
       <groupId>org.apache.maven</groupId>
-      <artifactId>maven-embedder</artifactId>
+      <artifactId>maven-settings-builder</artifactId>
     </dependency>
-    <!-- See root pom.xml for why this is required (MNG-5995). -->
     <dependency>
       <groupId>org.apache.maven</groupId>
-      <artifactId>maven-compat</artifactId>
+      <artifactId>maven-resolver-provider</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-model-builder</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.maven.resolver</groupId>
+      <artifactId>maven-resolver-supplier</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.maven.resolver</groupId>

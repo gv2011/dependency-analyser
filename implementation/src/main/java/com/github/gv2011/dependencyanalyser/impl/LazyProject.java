@@ -42,6 +42,7 @@ final class LazyProject implements Project {
 
   private static final Logger LOG = getLogger(LazyProject.class);
 
+  private final PomFetcher pomFetcher;
   private final String pomContent;
   private final Model rawModel;
 
@@ -57,7 +58,8 @@ final class LazyProject implements Project {
   private final Lazy<Model> interimModel = new Lazy<>(this::buildInterim);
 
 
-  LazyProject(final String pomContent, final IList<Repository> seedRepositories) {
+  LazyProject(final PomFetcher pomFetcher, final String pomContent, final IList<Repository> seedRepositories) {
+    this.pomFetcher = pomFetcher;
     this.pomContent = pomContent;
     this.seedRepositories = seedRepositories;
     rawModel = call(()->new MavenXpp3Reader().read(new StringReader(pomContent)));
@@ -65,10 +67,13 @@ final class LazyProject implements Project {
     versionDeclarations = getVersionDeclarations(rawModel);
   }
 
-  LazyProject(final MavenCoordinates coordinates, final IList<Repository> seedRepositories) {
+  LazyProject(
+    final PomFetcher pomFetcher, final MavenCoordinates coordinates, final IList<Repository> seedRepositories
+  ) {
+    this.pomFetcher = pomFetcher;
     this.coordinates = coordinates;
     this.seedRepositories = seedRepositories;
-    this.pomContent = new PomFetcher().fetchPomContent(coordinates, seedRepositories);
+    this.pomContent = pomFetcher.fetchPomContent(coordinates, seedRepositories);
     this.rawModel = call(()->new MavenXpp3Reader().read(new StringReader(pomContent)));
     verifyEqual(getCoordinates(rawModel), coordinates);
     versionDeclarations = getVersionDeclarations(rawModel);
@@ -178,7 +183,7 @@ final class LazyProject implements Project {
     final Instant start = Instant.now();
     final Path tempFile = createTempPomFile();
     try {
-      final BridgingModelResolver resolver = new BridgingModelResolver(seedRepositories);
+      final BridgingModelResolver resolver = new BridgingModelResolver(pomFetcher, seedRepositories);
       final Model model = ModelBuilderSketch.buildEffectiveModel(tempFile.toFile(), resolver);
       LOG.info("Built effective model of {}, took {}.", toMavenCoordinates(model), Duration.between(start, Instant.now()));
       return new EffectiveBuild(model, resolver.repositories());
@@ -191,7 +196,7 @@ final class LazyProject implements Project {
   private Model buildInterim() {
     final Path tempFile = createTempPomFile();
     try {
-      return ModelBuilderSketch.buildInterimModel(tempFile.toFile(), new BridgingModelResolver(seedRepositories));
+      return ModelBuilderSketch.buildInterimModel(tempFile.toFile(), new BridgingModelResolver(pomFetcher, seedRepositories));
     }
     finally {
       deleteQuietly(tempFile);

@@ -2,11 +2,6 @@ package com.github.gv2011.dependencyanalyser.impl;
 
 import static com.github.gv2011.dependencyanalyser.impl.VersionImpl.parse;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,9 +19,11 @@ import com.github.gv2011.util.icol.IList;
 
 final class BridgingModelResolver implements ModelResolver {
 
+  private final PomFetcher pomFetcher;
   private final List<Repository> repositories;
 
-  BridgingModelResolver(final IList<Repository> seed) {
+  BridgingModelResolver(final PomFetcher pomFetcher, final IList<Repository> seed) {
+    this.pomFetcher = pomFetcher;
     this.repositories = new ArrayList<>(seed);
   }
 
@@ -55,10 +52,10 @@ final class BridgingModelResolver implements ModelResolver {
   private ModelSource2 fetch(final String groupId, final String artifactId, final Version version)
     throws UnresolvableModelException
   {
-    final String pomContent;
     try {
-      pomContent = new PomFetcher().fetchPomContent(
-        Conversions.toMavenCoordinates(groupId, artifactId, version, "pom"), repositories()
+      return new FileModelSource(
+        pomFetcher.fetchPom(Conversions.toMavenCoordinates(groupId, artifactId, version, "pom"), repositories())
+        .toFile()
       );
     }
     catch(final RuntimeException e) {
@@ -69,15 +66,6 @@ final class BridgingModelResolver implements ModelResolver {
         version.toString(),
         e
       );
-    }
-    try {
-      final Path tempFile = Files.createTempFile("resolved-pom-", ".xml");
-      tempFile.toFile().deleteOnExit();
-      Files.writeString(tempFile, pomContent, StandardCharsets.UTF_8);
-      return new FileModelSource(tempFile.toFile());
-    }
-    catch(final IOException e) {
-      throw new UncheckedIOException(e);
     }
   }
 
@@ -105,7 +93,7 @@ final class BridgingModelResolver implements ModelResolver {
 
   @Override
   public ModelResolver newCopy() {
-    return new BridgingModelResolver(repositories());
+    return new BridgingModelResolver(pomFetcher, repositories());
   }
 
 }
