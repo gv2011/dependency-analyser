@@ -1,16 +1,23 @@
 package com.github.gv2011.dependencyanalyser.impl;
 
 import static com.github.gv2011.util.BeanUtils.beanBuilder;
+import static com.github.gv2011.util.Verify.notNull;
 
 import java.net.URI;
+import java.util.Locale;
 
 import org.apache.maven.model.Model;
 import org.apache.maven.project.MavenProject;
 
 import com.github.gv2011.dependencyanalyser.api.ArtifactIdentity;
+import com.github.gv2011.dependencyanalyser.api.Dependency;
+import com.github.gv2011.dependencyanalyser.api.DependencySection;
 import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
+import com.github.gv2011.dependencyanalyser.api.MavenScope;
 import com.github.gv2011.dependencyanalyser.api.Repository;
 import com.github.gv2011.dependencyanalyser.api.RepositoryId;
+import com.github.gv2011.dependencyanalyser.api.Version;
+import com.github.gv2011.dependencyanalyser.api.VersionDeclaration;
 import com.github.gv2011.util.icol.Opt;
 import com.github.gv2011.util.tstr.TypedString;
 
@@ -30,7 +37,10 @@ public final class Conversions {
 
   public static MavenCoordinates toMavenCoordinates(final Model model){
     return toMavenCoordinates(
-      model.getGroupId(), model.getArtifactId(), model.getVersion(), LazyProject.packaging(model)
+      notNull(model.getGroupId()),
+      notNull(model.getArtifactId()),
+      VersionImpl.parse(model.getVersion()),
+      packaging(model)
     );
   }
 
@@ -41,13 +51,13 @@ public final class Conversions {
    * that might later be fetched about it.
    */
   public static MavenCoordinates toMavenCoordinates(
-    final String groupId, final String artifactId, final String version, final String type
+    final String groupId, final String artifactId, final Version version, final String type
   ){
     return beanBuilder(MavenCoordinates.class)
       .set(MavenCoordinates::identity).to(
         toArtifactIdentity(groupId, artifactId, Opt.empty(), type)
       )
-      .set(MavenCoordinates::version).to(VersionImpl.parse(version))
+      .set(MavenCoordinates::version).to(version)
       .build()
     ;
   }
@@ -70,6 +80,49 @@ public final class Conversions {
       .set(Repository::url).to(URI.create(r.getUrl()))
       .build()
     ;
+  }
+
+  public static Dependency toDependency(final org.apache.maven.model.Dependency mavenDependency){
+    return beanBuilder(Dependency.class)
+      .set(Dependency::coordinates).to(coordinates(mavenDependency))
+      .set(Dependency::scope).to(scope(mavenDependency))
+      .build()
+    ;
+  }
+
+  public static VersionDeclaration toVersionDeclaration(
+    final org.apache.maven.model.Dependency d, final DependencySection section
+  ) {
+    return beanBuilder(VersionDeclaration.class)
+      .set(VersionDeclaration::artifact).to(identity(d))
+      .set(VersionDeclaration::version).to(VersionImpl.parse(d.getVersion()))
+      .set(VersionDeclaration::section).to(section)
+      .build()
+    ;
+  }
+
+  public static MavenCoordinates coordinates(final org.apache.maven.model.Dependency d) {
+    return beanBuilder(MavenCoordinates.class)
+      .set(MavenCoordinates::identity).to(identity(d))
+      .set(MavenCoordinates::version).to(VersionImpl.parse(d.getVersion()))
+      .build()
+    ;
+  }
+
+  public static ArtifactIdentity identity(final org.apache.maven.model.Dependency d) {
+    return toArtifactIdentity(d.getGroupId(), d.getArtifactId(), Opt.ofNullable(d.getClassifier()), type(d));
+  }
+
+  public static String type(final org.apache.maven.model.Dependency d) {
+    return Opt.ofNullable(d.getType()).orElse("jar");
+  }
+
+  public static MavenScope scope(final org.apache.maven.model.Dependency d) {
+    return MavenScope.valueOf(Opt.ofNullable(d.getScope()).orElse("compile").toUpperCase(Locale.ROOT));
+  }
+
+  private static String packaging(final Model m) {
+    return Opt.ofNullable(m.getPackaging()).orElse("jar");
   }
 
 }

@@ -173,7 +173,7 @@ class DependencyAnalyserImplTest {
   void formatTest() {
     final DependencyAnalyser analyser = new DependencyAnalyserImpl();
     assertThat(
-      analyser.format(Conversions.toMavenCoordinates("com.example", "lib", "1.0", "pom")),
+      analyser.format(Conversions.toMavenCoordinates("com.example", "lib", VersionImpl.parse("1.0"), "pom")),
       is("com.example:lib:pom:1.0")
     );
     final MavenCoordinates withClassifier = beanBuilder(MavenCoordinates.class)

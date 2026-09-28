@@ -1,28 +1,38 @@
 package com.github.gv2011.dependencyanalyser.impl;
 
-import static com.github.gv2011.util.BeanUtils.beanBuilder;
+import static com.github.gv2011.dependencyanalyser.impl.Conversions.toDependency;
+import static com.github.gv2011.dependencyanalyser.impl.Conversions.toMavenCoordinates;
+import static com.github.gv2011.dependencyanalyser.impl.Conversions.toVersionDeclaration;
+import static com.github.gv2011.dependencyanalyser.impl.VersionImpl.parse;
+import static com.github.gv2011.util.Verify.notNull;
+import static com.github.gv2011.util.Verify.verifyEqual;
+import static com.github.gv2011.util.ex.Exceptions.call;
 import static com.github.gv2011.util.ex.Exceptions.notYetImplemented;
+import static com.github.gv2011.util.icol.ICollections.toISet;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.io.IOException;
+import java.io.StringReader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Locale;
-import java.util.function.Function;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.stream.Stream;
 
 import org.apache.maven.model.Model;
-import org.apache.maven.model.Parent;
+import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
 import org.slf4j.Logger;
 
 import com.github.gv2011.dependencyanalyser.api.Dependency;
+import com.github.gv2011.dependencyanalyser.api.DependencySection;
 import com.github.gv2011.dependencyanalyser.api.MavenCoordinates;
 import com.github.gv2011.dependencyanalyser.api.MavenScope;
 import com.github.gv2011.dependencyanalyser.api.Project;
 import com.github.gv2011.dependencyanalyser.api.Repository;
+import com.github.gv2011.dependencyanalyser.api.Version;
 import com.github.gv2011.dependencyanalyser.api.VersionDeclaration;
-import com.github.gv2011.util.icol.ICollections;
 import com.github.gv2011.util.icol.IList;
 import com.github.gv2011.util.icol.ISet;
 import com.github.gv2011.util.icol.Opt;
@@ -33,45 +43,37 @@ final class LazyProject implements Project {
   private static final Logger LOG = getLogger(LazyProject.class);
 
   private final String pomContent;
+  private final Model rawModel;
+
+  /**
+   * Repositories used to obtain this project.
+   */
   private final IList<Repository> seedRepositories;
+
   private final MavenCoordinates coordinates;
-  private final Lazy<EffectiveBuild> effectiveBuild;
-  private final Lazy<Model> interimModel;
-  private final Lazy<ISet<VersionDeclaration>> versionDeclarations;
+  private final ISet<VersionDeclaration> versionDeclarations;
 
-  /**
-   * @param seedRepositories seeded into the model build - repositories
-   *   already known before this project's own text is even read (typically:
-   *   what the referring project in an ongoing walk had already
-   *   accumulated). See DependencyAnalyser.getProject's own javadoc.
-   */
+  private final Lazy<EffectiveBuild> effectiveBuild = new Lazy<>(this::buildEffective);
+  private final Lazy<Model> interimModel = new Lazy<>(this::buildInterim);
+
+
   LazyProject(final String pomContent, final IList<Repository> seedRepositories) {
-    this(getCoordinates(pomContent), pomContent, seedRepositories);
-  }
-
-  /**
-   * The fetch of this project's own pom needs seedRepositories too, not
-   * just the model build that happens afterward - otherwise a pom that
-   * lives only in one of them could never be found in the first place.
-   */
-  LazyProject(final MavenCoordinates coordinates, final IList<Repository> seedRepositories) {
-    this(coordinates, new PomFetcher().fetchPomContent(coordinates, seedRepositories), seedRepositories);
-  }
-
-  private LazyProject(
-    final MavenCoordinates coordinates, final String pomContent, final IList<Repository> seedRepositories
-  ) {
-    // Assigned here, not as field initializers: field initializers run
-    // before the constructor body, so a lambda in one of them referencing
-    // pomContent would read a field not provably assigned yet - a real
-    // compile error, not a style choice.
-    this.coordinates = coordinates;
     this.pomContent = pomContent;
     this.seedRepositories = seedRepositories;
-    this.effectiveBuild = new Lazy<>(this::buildEffective);
-    this.interimModel = new Lazy<>(this::buildInterim);
-    this.versionDeclarations = new Lazy<>(() -> RawVersionDeclarations.read(this.pomContent));
+    rawModel = call(()->new MavenXpp3Reader().read(new StringReader(pomContent)));
+    coordinates = getCoordinates(rawModel);
+    versionDeclarations = getVersionDeclarations(rawModel);
   }
+
+  LazyProject(final MavenCoordinates coordinates, final IList<Repository> seedRepositories) {
+    this.coordinates = coordinates;
+    this.seedRepositories = seedRepositories;
+    this.pomContent = new PomFetcher().fetchPomContent(coordinates, seedRepositories);
+    this.rawModel = call(()->new MavenXpp3Reader().read(new StringReader(pomContent)));
+    verifyEqual(getCoordinates(rawModel), coordinates);
+    versionDeclarations = getVersionDeclarations(rawModel);
+  }
+
 
   /**
    * @param repositories what the resolver used for this build ended up
@@ -81,6 +83,7 @@ final class LazyProject implements Project {
    *   project's own <repositories> element, not the accumulated result.
    */
   private record EffectiveBuild(Model model, IList<Repository> repositories) {}
+
 
   @Override
   public MavenCoordinates coordinates() {
@@ -99,45 +102,50 @@ final class LazyProject implements Project {
 
   @Override
   public Opt<MavenCoordinates> parent() {
-    final Parent p = effectiveBuild.get().model().getParent();
-    return Opt.ofNullable(p).map(pp ->
-      Conversions.toMavenCoordinates(pp.getGroupId(), pp.getArtifactId(), pp.getVersion(), "pom")
-    );
+    return getParent(rawModel);
   }
 
-  /**
-   * From the interim model only - the effective model has already had
-   * its scope=import entries replaced by what they point to. See
-   * ModelBuilderSketch.buildInterimModel's own javadoc.
-   */
+  private static Opt<MavenCoordinates> getParent(final Model rawModel) {
+    return Opt.ofNullable(rawModel.getParent())
+      .map(p->toMavenCoordinates(
+        notNull(p.getGroupId()),
+        notNull(p.getArtifactId()),
+        parse(Opt
+          .ofNullable(p.getVersion())
+          .orElseGet(()->notYetImplemented(
+            "parent version omitted (inferred via relativePath, MNG-624) for "+
+            p.getGroupId() + ":" + p.getArtifactId()
+          ))
+        ),
+        "pom"
+      ))
+    ;
+  }
+
   @Override
   public ISet<Dependency> boms() {
-    final ISet.Builder<Dependency> result = ICollections.setBuilder();
-    final Model m = interimModel.get();
-    if(m.getDependencyManagement()!=null) {
-      m.getDependencyManagement().getDependencies().forEach(d -> {
-        if("import".equals(d.getScope())) {
-          result.add(
-            toDependency(d.getGroupId(), d.getArtifactId(), d.getVersion(), d.getType(), MavenScope.IMPORT)
-          );
-        }
-      });
-    }
-    return result.build();
+    //Boms are not available in the effective model, because there they are resolved already.
+    //We use an interim model where they are still available.
+    return Opt
+      .ofNullable(interimModel.get().getDependencyManagement()).stream()
+      .flatMap(dm->dm.getDependencies().stream())
+      .map(d->toDependency(d))
+      .filter(d->d.scope().equals(MavenScope.IMPORT))
+      .toISet()
+    ;
   }
 
   @Override
   public ISet<Dependency> dependencies() {
-    final ISet.Builder<Dependency> result = ICollections.setBuilder();
-    effectiveBuild.get().model().getDependencies().forEach(d -> result.add(
-      toDependency(d.getGroupId(), d.getArtifactId(), d.getVersion(), d.getType(), scopeOf(d.getScope()))
-    ));
-    return result.build();
+    return effectiveBuild.get().model().getDependencies().stream()
+      .map(Conversions::toDependency)
+      .collect(toISet())
+    ;
   }
 
   @Override
   public ISet<VersionDeclaration> getVersionDeclarations() {
-    return versionDeclarations.get();
+    return versionDeclarations;
   }
 
   /**
@@ -154,39 +162,25 @@ final class LazyProject implements Project {
    * relativePath, MNG-624) - e.g. PomFetcher-based resolution would be
    * needed for that, out of scope for this lightweight path.
    */
-  private static MavenCoordinates getCoordinates(final String pomContent) {
-    final Model raw = RawPom.read(pomContent);
-    final String groupId = Opt.ofNullable(raw.getGroupId()).orElseGet(() -> parentField(raw, Parent::getGroupId));
-    final String version = Opt.ofNullable(raw.getVersion()).orElseGet(() -> parentField(raw, Parent::getVersion));
-    return Conversions.toMavenCoordinates(groupId, raw.getArtifactId(), version, "pom");
+  private static MavenCoordinates getCoordinates(final Model raw) {
+    final Opt<MavenCoordinates> parent = getParent(raw);
+    final String groupId = Opt.ofNullable(raw.getGroupId()).orElseGet(()->parent.get().identity().groupId());
+    final Version version = Opt
+      .ofNullable(raw.getVersion()).map(VersionImpl::parse)
+      .orElseGet(()->parent.get().version())
+    ;
+    return toMavenCoordinates(groupId, raw.getArtifactId(), version, "pom");
   }
 
-  private static String parentField(final Model raw, final Function<Parent, String> field) {
-    final Parent parent = raw.getParent();
-    if(parent==null) {
-      return notYetImplemented(
-        "groupId/version not stated, and no <parent> to inherit them from, for " + raw.getArtifactId()
-      );
-    }
-    final String value = field.apply(parent);
-    if(value==null) {
-      // Since Maven 3.5 (MNG-624) a <parent> may omit <version> and have
-      // it inferred from <relativePath> instead - not resolvable from
-      // this pom's own text alone.
-      return notYetImplemented(
-        "parent version omitted (inferred via relativePath, MNG-624) for "
-        + parent.getGroupId() + ":" + parent.getArtifactId()
-      );
-    }
-    return value;
-  }
+
 
   private EffectiveBuild buildEffective() {
+    final Instant start = Instant.now();
     final Path tempFile = createTempPomFile();
     try {
       final BridgingModelResolver resolver = new BridgingModelResolver(seedRepositories);
       final Model model = ModelBuilderSketch.buildEffectiveModel(tempFile.toFile(), resolver);
-      LOG.info("Built effective model of {}", Conversions.toMavenCoordinates(model));
+      LOG.info("Built effective model of {}, took {}.", toMavenCoordinates(model), Duration.between(start, Instant.now()));
       return new EffectiveBuild(model, resolver.repositories());
     }
     finally {
@@ -230,34 +224,20 @@ final class LazyProject implements Project {
     }
   }
 
-  /**
-   * Effective dependencies always carry a real scope - modelNormalizer's
-   * default-value injection supplies "compile" during model building
-   * when none is stated. Defaulted here regardless, rather than assumed.
-   */
-  private static MavenScope scopeOf(final String scope) {
-    return MavenScope.valueOf(Opt.ofNullable(scope).orElse("compile").toUpperCase(Locale.ROOT));
-  }
-
-  /**
-   * Carries a hardcoded "jar" default in the generated model class
-   * itself (from maven.mdo), present on a bare read - not something
-   * that depends on model building/merging. Applied defensively here
-   * regardless, rather than assumed.
-   */
-  static String packaging(final Model m) {
-    return Opt.ofNullable(m.getPackaging()).orElse("jar");
-  }
-
-  private static Dependency toDependency(
-    final String groupId, final String artifactId, final String version, final String type, final MavenScope scope
-  ) {
-    return beanBuilder(Dependency.class)
-      .set(Dependency::coordinates).to(
-        Conversions.toMavenCoordinates(groupId, artifactId, version, Opt.ofNullable(type).orElse("jar"))
+  private static ISet<VersionDeclaration> getVersionDeclarations(final Model raw) {
+    return
+      Stream.concat(
+        ( raw.getDependencies().stream()
+          .filter(d->d.getVersion()!=null)
+          .map(d->toVersionDeclaration(d, DependencySection.DEPENDENCIES))
+        ),
+        ( Opt.ofNullable(raw.getDependencyManagement()).stream()
+          .flatMap(dm->dm.getDependencies().stream())
+          .filter(d->d.getVersion()!=null)
+          .map(d->toVersionDeclaration(d, DependencySection.DEPENDENCY_MANAGEMENT))
+        )
       )
-      .set(Dependency::scope).to(scope)
-      .build()
+      .collect(toISet())
     ;
   }
 
